@@ -1,0 +1,112 @@
+{
+  "dataset_name": "hmmwv_aggressive_steer_2k",
+  "chrono_data_root": "chrono/data",
+  "vehicle_data_root": "chrono/data/vehicle",
+  "output_subdir": "artifacts/datasets/hmmwv_aggressive_steer_2k",
+  "simulation": {
+    "step_size_s": 0.002,
+    "tire_step_size_s": 0.001,
+    "record_step_s": 0.01,
+    "driver_sample_step_s": 0.01,
+    "validation_ratio": 0.2
+  },
+  "vehicle": {
+    "model": "HMMWV_Full",
+    "contact_method": "SMC",
+    "chassis_fixed": false,
+    "init": {
+      "x_m": 0.0,
+      "y_m": 0.0,
+      "z_m": 1.6
+    },
+    "engine_model": "SHAFTS",
+    "transmission_model": "AUTOMATIC_SHAFTS",
+    "drive_type": "AWD",
+    "steering_type": "PITMAN_ARM",
+    "tire_model": "TMEASY"
+  },
+  "terrain": {
+    "type": "rigid",
+    "length_m": 300.0,
+    "width_m": 300.0,
+    "friction": 0.9,
+    "restitution": 0.01,
+    "young_modulus_pa": 20000000.0
+  },
+  "logging": {
+    "include_tire_channels": false
+  },
+  "scenario_generator": {
+    "seed": 20260523,
+    "shuffle_seed": 20260524,
+    "warmup_s": 2.5,
+    "families": [
+      {
+        "name": "aggressive_step_steer",
+        "template": "step_steer",
+        "count": 400,
+        "duration_s_range": [10.0, 14.0],
+        "steering_amplitude_range": [0.35, 0.80],
+        "steer_start_offset_s_range": [0.5, 1.8],
+        "steer_rise_s_range": [0.15, 0.45],
+        "steer_hold_s_range": [2.0, 5.5],
+        "steer_return_s_range": [0.25, 0.9],
+        "throttle_peak_range": [0.18, 0.38],
+        "throttle_rise_s_range": [0.6, 1.6]
+      },
+      {
+        "name": "aggressive_doublet_steer",
+        "template": "doublet_steer",
+        "count": 400,
+        "duration_s_range": [10.0, 14.0],
+        "steering_amplitude_range": [0.32, 0.72],
+        "second_pulse_ratio_range": [0.8, 1.3],
+        "steer_start_offset_s_range": [0.5, 1.8],
+        "pulse_width_s_range": [0.5, 1.5],
+        "pulse_gap_s_range": [0.15, 0.8],
+        "steer_return_s_range": [0.25, 0.8],
+        "throttle_peak_range": [0.16, 0.36],
+        "throttle_rise_s_range": [0.6, 1.6]
+      },
+      {
+        "name": "aggressive_sine_steer",
+        "template": "sine_steer",
+        "count": 400,
+        "duration_s_range": [10.0, 14.0],
+        "steering_amplitude_range": [0.28, 0.62],
+        "frequency_hz_range": [0.15, 0.75],
+        "steer_start_offset_s_range": [0.4, 1.2],
+        "end_margin_s_range": [0.4, 1.2],
+        "throttle_peak_range": [0.16, 0.38],
+        "throttle_rise_s_range": [0.6, 1.6]
+      },
+      {
+        "name": "aggressive_chirp_steer",
+        "template": "chirp_steer",
+        "count": 400,
+        "duration_s_range": [10.0, 14.0],
+        "steering_amplitude_range": [0.25, 0.58],
+        "start_frequency_hz_range": [0.08, 0.25],
+        "end_frequency_hz_range": [0.55, 1.35],
+        "steer_start_offset_s_range": [0.4, 1.2],
+        "end_margin_s_range": [0.4, 1.2],
+        "throttle_peak_range": [0.16, 0.36],
+        "throttle_rise_s_range": [0.6, 1.6]
+      },
+      {
+        "name": "aggressive_steer_brake",
+        "template": "steer_brake",
+        "count": 400,
+        "duration_s_range": [10.0, 14.0],
+        "steering_amplitude_range": [0.32, 0.75],
+        "steer_start_offset_s_range": [0.5, 1.8],
+        "steer_rise_s_range": [0.15, 0.45],
+        "steer_hold_s_range": [1.5, 4.0],
+        "steer_return_s_range": [0.25, 0.9],
+        "throttle_peak_range": [0.18, 0.45],
+        "brake_peak_range": [0.15, 0.60],
+        "brake_start_offset_s_range": [0.2, 1.0]
+      }
+    ]
+  }
+}

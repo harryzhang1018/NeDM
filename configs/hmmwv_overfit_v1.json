@@ -1,0 +1,224 @@
+{
+  "dataset_name": "hmmwv_overfit_v1",
+  "chrono_data_root": "chrono/data",
+  "vehicle_data_root": "chrono/data/vehicle",
+  "output_subdir": "artifacts/datasets/hmmwv_overfit_v1",
+  "simulation": {
+    "step_size_s": 0.002,
+    "tire_step_size_s": 0.001,
+    "record_step_s": 0.01,
+    "driver_sample_step_s": 0.01,
+    "validation_ratio": 0.2
+  },
+  "vehicle": {
+    "model": "HMMWV_Full",
+    "contact_method": "SMC",
+    "chassis_fixed": false,
+    "init": {
+      "x_m": 0.0,
+      "y_m": 0.0,
+      "z_m": 1.6
+    },
+    "engine_model": "SHAFTS",
+    "transmission_model": "AUTOMATIC_SHAFTS",
+    "drive_type": "AWD",
+    "steering_type": "PITMAN_ARM",
+    "tire_model": "TMEASY"
+  },
+  "terrain": {
+    "type": "rigid",
+    "length_m": 240.0,
+    "width_m": 240.0,
+    "friction": 0.9,
+    "restitution": 0.01,
+    "young_modulus_pa": 20000000.0
+  },
+  "logging": {
+    "include_tire_channels": true
+  },
+  "scenarios": [
+    {
+      "name": "launch_brake",
+      "duration_s": 12.0,
+      "warmup_s": 2.5,
+      "driver": {
+        "steering": {
+          "kind": "constant",
+          "value": 0.0
+        },
+        "throttle": {
+          "kind": "piecewise_linear",
+          "points": [
+            [0.0, 0.0],
+            [2.5, 0.0],
+            [4.0, 0.22],
+            [6.0, 0.35],
+            [8.5, 0.35],
+            [9.5, 0.0],
+            [12.0, 0.0]
+          ]
+        },
+        "braking": {
+          "kind": "piecewise_linear",
+          "points": [
+            [0.0, 0.0],
+            [9.0, 0.0],
+            [10.0, 0.45],
+            [11.0, 0.2],
+            [12.0, 0.0]
+          ]
+        }
+      }
+    },
+    {
+      "name": "step_steer_left",
+      "duration_s": 12.0,
+      "warmup_s": 2.5,
+      "driver": {
+        "steering": {
+          "kind": "piecewise_linear",
+          "points": [
+            [0.0, 0.0],
+            [4.0, 0.0],
+            [4.5, 0.22],
+            [6.0, 0.22],
+            [6.5, 0.0],
+            [12.0, 0.0]
+          ]
+        },
+        "throttle": {
+          "kind": "piecewise_linear",
+          "points": [
+            [0.0, 0.0],
+            [2.5, 0.0],
+            [4.0, 0.18],
+            [12.0, 0.25]
+          ]
+        },
+        "braking": {
+          "kind": "constant",
+          "value": 0.0
+        }
+      }
+    },
+    {
+      "name": "step_steer_right",
+      "duration_s": 12.0,
+      "warmup_s": 2.5,
+      "driver": {
+        "steering": {
+          "kind": "piecewise_linear",
+          "points": [
+            [0.0, 0.0],
+            [4.0, 0.0],
+            [4.5, -0.22],
+            [6.0, -0.22],
+            [6.5, 0.0],
+            [12.0, 0.0]
+          ]
+        },
+        "throttle": {
+          "kind": "piecewise_linear",
+          "points": [
+            [0.0, 0.0],
+            [2.5, 0.0],
+            [4.0, 0.18],
+            [12.0, 0.25]
+          ]
+        },
+        "braking": {
+          "kind": "constant",
+          "value": 0.0
+        }
+      }
+    },
+    {
+      "name": "sine_steer_low_speed",
+      "duration_s": 12.0,
+      "warmup_s": 2.5,
+      "driver": {
+        "steering": {
+          "kind": "sine",
+          "amplitude": 0.12,
+          "offset": 0.0,
+          "frequency_hz": 0.35,
+          "phase_rad": 0.0,
+          "start_s": 3.0,
+          "end_s": 11.0
+        },
+        "throttle": {
+          "kind": "piecewise_linear",
+          "points": [
+            [0.0, 0.0],
+            [2.5, 0.0],
+            [4.0, 0.2],
+            [12.0, 0.24]
+          ]
+        },
+        "braking": {
+          "kind": "constant",
+          "value": 0.0
+        }
+      }
+    },
+    {
+      "name": "sine_steer_medium_speed",
+      "duration_s": 12.0,
+      "warmup_s": 2.5,
+      "driver": {
+        "steering": {
+          "kind": "sine",
+          "amplitude": 0.2,
+          "offset": 0.0,
+          "frequency_hz": 0.6,
+          "phase_rad": 0.0,
+          "start_s": 3.0,
+          "end_s": 11.0
+        },
+        "throttle": {
+          "kind": "piecewise_linear",
+          "points": [
+            [0.0, 0.0],
+            [2.5, 0.0],
+            [4.0, 0.24],
+            [12.0, 0.3]
+          ]
+        },
+        "braking": {
+          "kind": "constant",
+          "value": 0.0
+        }
+      }
+    },
+    {
+      "name": "chirp_steer",
+      "duration_s": 12.0,
+      "warmup_s": 2.5,
+      "driver": {
+        "steering": {
+          "kind": "chirp",
+          "amplitude": 0.18,
+          "offset": 0.0,
+          "start_frequency_hz": 0.15,
+          "end_frequency_hz": 1.2,
+          "phase_rad": 0.0,
+          "start_s": 3.0,
+          "end_s": 11.0
+        },
+        "throttle": {
+          "kind": "piecewise_linear",
+          "points": [
+            [0.0, 0.0],
+            [2.5, 0.0],
+            [4.0, 0.2],
+            [12.0, 0.24]
+          ]
+        },
+        "braking": {
+          "kind": "constant",
+          "value": 0.0
+        }
+      }
+    }
+  ]
+}

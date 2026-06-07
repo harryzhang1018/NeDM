@@ -1,0 +1,859 @@
+{
+  "updated_at_utc": "2026-05-26T10:53:38.475441+00:00",
+  "rank_metric": "eval.xy_rmse_median_m, then eval.xy_rmse_mean_m",
+  "num_complete": 12,
+  "models": [
+    {
+      "version": "v07",
+      "slug": "context128_b64",
+      "notes": "Long context stress test on the 4090 memory budget.",
+      "config_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_sweep_v04_v18/configs/v07_context128_b64.json",
+      "output_dir": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v07_context128_b64",
+      "checkpoint_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v07_context128_b64/checkpoints/best_val.pt",
+      "started_at_utc": "2026-05-26T04:20:00.503920+00:00",
+      "model": {
+        "block_size": 128,
+        "n_layer": 6,
+        "n_head": 8,
+        "n_embd": 256,
+        "dropout": 0.0,
+        "bias": false,
+        "head_hidden_dim": 256
+      },
+      "optimizer": {
+        "lr": 0.0003,
+        "min_lr": 3e-05,
+        "weight_decay": 0.1,
+        "betas": [
+          0.9,
+          0.95
+        ],
+        "warmup_steps": 1000,
+        "grad_clip_norm": 1.0
+      },
+      "training_config": {
+        "seed": 2026052507,
+        "device": "cuda",
+        "batch_size": 64,
+        "num_workers": 0,
+        "num_epochs": 80,
+        "steps_per_epoch": 2000,
+        "max_val_batches": 200,
+        "compile": false
+      },
+      "status": "complete",
+      "finished_at_utc": "2026-05-26T04:20:00.504682+00:00",
+      "training": {
+        "epochs": 80,
+        "best_epoch": 74,
+        "best_val_loss": 0.03994255425968731,
+        "best_train_loss": 0.03693500628275797,
+        "last_epoch": 80,
+        "last_val_loss": 0.04426054367671895,
+        "last_train_loss": 0.03650191476941109
+      },
+      "eval": {
+        "summary_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v07_context128_b64/plots/random_val_overlays_n20_seed_20260525/summary.json",
+        "num_episodes": 20,
+        "xy_rmse_mean_m": 31.533087606541525,
+        "xy_rmse_median_m": 5.955685144145417,
+        "xy_rmse_min_m": 0.47965256442610543,
+        "xy_rmse_max_m": 172.11962704940132,
+        "yaw_rmse_mean_rad": 0.1480099136118316,
+        "yaw_rmse_median_rad": 0.08004515666349456,
+        "rollout_steps_mean": 3711.55,
+        "families": {
+          "aggressive_steer_brake": 1,
+          "aggressive_step_steer": 1,
+          "chirp_steer": 2,
+          "doublet_steer": 4,
+          "multi_steer": 7,
+          "sine_steer": 3,
+          "steer_brake": 1,
+          "sustained_turn": 1
+        }
+      }
+    },
+    {
+      "version": "v12",
+      "slug": "wide512_b48",
+      "notes": "Large-width 512-dim model with reduced batch size.",
+      "config_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_sweep_v04_v18/configs/v12_wide512_b48.json",
+      "output_dir": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v12_wide512_b48",
+      "checkpoint_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v12_wide512_b48/checkpoints/best_val.pt",
+      "started_at_utc": "2026-05-26T06:49:06.999360+00:00",
+      "model": {
+        "block_size": 64,
+        "n_layer": 6,
+        "n_head": 16,
+        "n_embd": 512,
+        "dropout": 0.0,
+        "bias": false,
+        "head_hidden_dim": 512
+      },
+      "optimizer": {
+        "lr": 0.00018,
+        "min_lr": 1.8e-05,
+        "weight_decay": 0.1,
+        "betas": [
+          0.9,
+          0.95
+        ],
+        "warmup_steps": 1000,
+        "grad_clip_norm": 1.0
+      },
+      "training_config": {
+        "seed": 2026052512,
+        "device": "cuda",
+        "batch_size": 48,
+        "num_workers": 0,
+        "num_epochs": 80,
+        "steps_per_epoch": 2000,
+        "max_val_batches": 200,
+        "compile": false
+      },
+      "status": "complete",
+      "finished_at_utc": "2026-05-26T07:28:54.711572+00:00",
+      "training": {
+        "epochs": 80,
+        "best_epoch": 73,
+        "best_val_loss": 0.029011027584492696,
+        "best_train_loss": 0.0387919871523045,
+        "last_epoch": 80,
+        "last_val_loss": 0.03184763231758552,
+        "last_train_loss": 0.038157270051073285
+      },
+      "eval": {
+        "summary_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v12_wide512_b48/plots/random_val_overlays_n20_seed_20260525/summary.json",
+        "num_episodes": 20,
+        "xy_rmse_mean_m": 72.99245069541735,
+        "xy_rmse_median_m": 9.43131801478522,
+        "xy_rmse_min_m": 0.4956535729425619,
+        "xy_rmse_max_m": 419.6699596111211,
+        "yaw_rmse_mean_rad": 0.3475400933817011,
+        "yaw_rmse_median_rad": 0.08126440554413264,
+        "rollout_steps_mean": 3775.55,
+        "families": {
+          "aggressive_steer_brake": 1,
+          "aggressive_step_steer": 1,
+          "chirp_steer": 2,
+          "doublet_steer": 4,
+          "multi_steer": 7,
+          "sine_steer": 3,
+          "steer_brake": 1,
+          "sustained_turn": 1
+        }
+      }
+    },
+    {
+      "version": "v17",
+      "slug": "head512_b96",
+      "notes": "V1 backbone with a larger prediction head.",
+      "config_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_sweep_v04_v18/configs/v17_head512_b96.json",
+      "output_dir": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v17_head512_b96",
+      "checkpoint_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v17_head512_b96/checkpoints/best_val.pt",
+      "started_at_utc": "2026-05-26T09:38:18.918585+00:00",
+      "model": {
+        "block_size": 64,
+        "n_layer": 6,
+        "n_head": 8,
+        "n_embd": 256,
+        "dropout": 0.0,
+        "bias": false,
+        "head_hidden_dim": 512
+      },
+      "optimizer": {
+        "lr": 0.0003,
+        "min_lr": 3e-05,
+        "weight_decay": 0.1,
+        "betas": [
+          0.9,
+          0.95
+        ],
+        "warmup_steps": 1000,
+        "grad_clip_norm": 1.0
+      },
+      "training_config": {
+        "seed": 2026052517,
+        "device": "cuda",
+        "batch_size": 96,
+        "num_workers": 0,
+        "num_epochs": 80,
+        "steps_per_epoch": 2000,
+        "max_val_batches": 200,
+        "compile": false
+      },
+      "status": "complete",
+      "finished_at_utc": "2026-05-26T10:05:33.079196+00:00",
+      "training": {
+        "epochs": 80,
+        "best_epoch": 76,
+        "best_val_loss": 0.03945060888167063,
+        "best_train_loss": 0.03800370739912614,
+        "last_epoch": 80,
+        "last_val_loss": 0.048810262246552154,
+        "last_train_loss": 0.03745325431227684
+      },
+      "eval": {
+        "summary_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v17_head512_b96/plots/random_val_overlays_n20_seed_20260525/summary.json",
+        "num_episodes": 20,
+        "xy_rmse_mean_m": 35.01616322394592,
+        "xy_rmse_median_m": 9.705965194183243,
+        "xy_rmse_min_m": 0.4121112371465908,
+        "xy_rmse_max_m": 172.77453244763825,
+        "yaw_rmse_mean_rad": 0.15939413446617898,
+        "yaw_rmse_median_rad": 0.07191753490841366,
+        "rollout_steps_mean": 3775.55,
+        "families": {
+          "aggressive_steer_brake": 1,
+          "aggressive_step_steer": 1,
+          "chirp_steer": 2,
+          "doublet_steer": 4,
+          "multi_steer": 7,
+          "sine_steer": 3,
+          "steer_brake": 1,
+          "sustained_turn": 1
+        }
+      }
+    },
+    {
+      "version": "v04",
+      "slug": "long_baseline_b32",
+      "notes": "V3/v1-sized architecture with longer 80-epoch training.",
+      "config_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_sweep_v04_v18/configs/v04_long_baseline_b32.json",
+      "output_dir": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v04_long_baseline_b32",
+      "checkpoint_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v04_long_baseline_b32/checkpoints/best_val.pt",
+      "started_at_utc": "2026-05-26T04:18:08.116466+00:00",
+      "model": {
+        "block_size": 32,
+        "n_layer": 6,
+        "n_head": 8,
+        "n_embd": 256,
+        "dropout": 0.0,
+        "bias": false,
+        "head_hidden_dim": 256
+      },
+      "optimizer": {
+        "lr": 0.0003,
+        "min_lr": 3e-05,
+        "weight_decay": 0.1,
+        "betas": [
+          0.9,
+          0.95
+        ],
+        "warmup_steps": 1000,
+        "grad_clip_norm": 1.0
+      },
+      "training_config": {
+        "seed": 2026052504,
+        "device": "cuda",
+        "batch_size": 256,
+        "num_workers": 0,
+        "num_epochs": 80,
+        "steps_per_epoch": 2000,
+        "max_val_batches": 200,
+        "compile": false
+      },
+      "status": "complete",
+      "finished_at_utc": "2026-05-26T04:18:08.117307+00:00",
+      "training": {
+        "epochs": 80,
+        "best_epoch": 75,
+        "best_val_loss": 0.04053179819427896,
+        "best_train_loss": 0.03774950411356986,
+        "last_epoch": 80,
+        "last_val_loss": 0.0412364389137656,
+        "last_train_loss": 0.03706108858250082
+      },
+      "eval": {
+        "summary_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v04_long_baseline_b32/plots/random_val_overlays_n20_seed_20260525/summary.json",
+        "num_episodes": 20,
+        "xy_rmse_mean_m": 15.116759631667511,
+        "xy_rmse_median_m": 10.166898198436375,
+        "xy_rmse_min_m": 0.49667057534521014,
+        "xy_rmse_max_m": 68.13170480194042,
+        "yaw_rmse_mean_rad": 0.09856571323635041,
+        "yaw_rmse_median_rad": 0.06131791260285228,
+        "rollout_steps_mean": 3807.55,
+        "families": {
+          "aggressive_steer_brake": 1,
+          "aggressive_step_steer": 1,
+          "chirp_steer": 2,
+          "doublet_steer": 4,
+          "multi_steer": 7,
+          "sine_steer": 3,
+          "steer_brake": 1,
+          "sustained_turn": 1
+        }
+      }
+    },
+    {
+      "version": "v13",
+      "slug": "dropout384_b64",
+      "notes": "Wider model with dropout regularization for long training.",
+      "config_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_sweep_v04_v18/configs/v13_dropout384_b64.json",
+      "output_dir": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v13_dropout384_b64",
+      "checkpoint_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v13_dropout384_b64/checkpoints/best_val.pt",
+      "started_at_utc": "2026-05-26T07:28:54.712305+00:00",
+      "model": {
+        "block_size": 64,
+        "n_layer": 8,
+        "n_head": 12,
+        "n_embd": 384,
+        "dropout": 0.05,
+        "bias": false,
+        "head_hidden_dim": 384
+      },
+      "optimizer": {
+        "lr": 0.0002,
+        "min_lr": 2e-05,
+        "weight_decay": 0.1,
+        "betas": [
+          0.9,
+          0.95
+        ],
+        "warmup_steps": 1000,
+        "grad_clip_norm": 1.0
+      },
+      "training_config": {
+        "seed": 2026052513,
+        "device": "cuda",
+        "batch_size": 64,
+        "num_workers": 0,
+        "num_epochs": 80,
+        "steps_per_epoch": 2000,
+        "max_val_batches": 200,
+        "compile": false
+      },
+      "status": "complete",
+      "finished_at_utc": "2026-05-26T08:11:43.687339+00:00",
+      "training": {
+        "epochs": 80,
+        "best_epoch": 77,
+        "best_val_loss": 0.041470879168991816,
+        "best_train_loss": 0.04595756748272106,
+        "last_epoch": 80,
+        "last_val_loss": 0.05545103532720532,
+        "last_train_loss": 0.0463575378623791
+      },
+      "eval": {
+        "summary_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v13_dropout384_b64/plots/random_val_overlays_n20_seed_20260525/summary.json",
+        "num_episodes": 20,
+        "xy_rmse_mean_m": 24.191383127033983,
+        "xy_rmse_median_m": 10.222617941175073,
+        "xy_rmse_min_m": 0.6932120583073734,
+        "xy_rmse_max_m": 149.90731511504035,
+        "yaw_rmse_mean_rad": 0.184688296691977,
+        "yaw_rmse_median_rad": 0.06410426961223177,
+        "rollout_steps_mean": 3775.55,
+        "families": {
+          "aggressive_steer_brake": 1,
+          "aggressive_step_steer": 1,
+          "chirp_steer": 2,
+          "doublet_steer": 4,
+          "multi_steer": 7,
+          "sine_steer": 3,
+          "steer_brake": 1,
+          "sustained_turn": 1
+        }
+      }
+    },
+    {
+      "version": "v09",
+      "slug": "deeper10_b64",
+      "notes": "Depth-heavy 256-wide transformer.",
+      "config_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_sweep_v04_v18/configs/v09_deeper10_b64.json",
+      "output_dir": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v09_deeper10_b64",
+      "checkpoint_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v09_deeper10_b64/checkpoints/best_val.pt",
+      "started_at_utc": "2026-05-26T04:54:52.883301+00:00",
+      "model": {
+        "block_size": 64,
+        "n_layer": 10,
+        "n_head": 8,
+        "n_embd": 256,
+        "dropout": 0.0,
+        "bias": false,
+        "head_hidden_dim": 256
+      },
+      "optimizer": {
+        "lr": 0.0003,
+        "min_lr": 3e-05,
+        "weight_decay": 0.1,
+        "betas": [
+          0.9,
+          0.95
+        ],
+        "warmup_steps": 1000,
+        "grad_clip_norm": 1.0
+      },
+      "training_config": {
+        "seed": 2026052509,
+        "device": "cuda",
+        "batch_size": 64,
+        "num_workers": 0,
+        "num_epochs": 80,
+        "steps_per_epoch": 2000,
+        "max_val_batches": 200,
+        "compile": false
+      },
+      "status": "complete",
+      "finished_at_utc": "2026-05-26T05:22:31.680083+00:00",
+      "training": {
+        "epochs": 80,
+        "best_epoch": 77,
+        "best_val_loss": 0.037051154192558895,
+        "best_train_loss": 0.03862399640958756,
+        "last_epoch": 80,
+        "last_val_loss": 0.048834998391103,
+        "last_train_loss": 0.037855630894657225
+      },
+      "eval": {
+        "summary_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v09_deeper10_b64/plots/random_val_overlays_n20_seed_20260525/summary.json",
+        "num_episodes": 20,
+        "xy_rmse_mean_m": 35.41070587128051,
+        "xy_rmse_median_m": 10.692162132536533,
+        "xy_rmse_min_m": 1.035785987326411,
+        "xy_rmse_max_m": 174.28816162106364,
+        "yaw_rmse_mean_rad": 0.14439469616493128,
+        "yaw_rmse_median_rad": 0.0790707016081315,
+        "rollout_steps_mean": 3775.55,
+        "families": {
+          "aggressive_steer_brake": 1,
+          "aggressive_step_steer": 1,
+          "chirp_steer": 2,
+          "doublet_steer": 4,
+          "multi_steer": 7,
+          "sine_steer": 3,
+          "steer_brake": 1,
+          "sustained_turn": 1
+        }
+      }
+    },
+    {
+      "version": "v10",
+      "slug": "wide384_b96",
+      "notes": "Wider 384-dim model with 12 attention heads.",
+      "config_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_sweep_v04_v18/configs/v10_wide384_b96.json",
+      "output_dir": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v10_wide384_b96",
+      "checkpoint_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v10_wide384_b96/checkpoints/best_val.pt",
+      "started_at_utc": "2026-05-26T05:22:31.680706+00:00",
+      "model": {
+        "block_size": 64,
+        "n_layer": 6,
+        "n_head": 12,
+        "n_embd": 384,
+        "dropout": 0.0,
+        "bias": false,
+        "head_hidden_dim": 384
+      },
+      "optimizer": {
+        "lr": 0.00025,
+        "min_lr": 2.5e-05,
+        "weight_decay": 0.1,
+        "betas": [
+          0.9,
+          0.95
+        ],
+        "warmup_steps": 1000,
+        "grad_clip_norm": 1.0
+      },
+      "training_config": {
+        "seed": 2026052510,
+        "device": "cuda",
+        "batch_size": 96,
+        "num_workers": 0,
+        "num_epochs": 80,
+        "steps_per_epoch": 2000,
+        "max_val_batches": 200,
+        "compile": false
+      },
+      "status": "complete",
+      "finished_at_utc": "2026-05-26T06:07:28.762566+00:00",
+      "training": {
+        "epochs": 80,
+        "best_epoch": 80,
+        "best_val_loss": 0.039594630663777934,
+        "best_train_loss": 0.0371492436779663,
+        "last_epoch": 80,
+        "last_val_loss": 0.039594630663777934,
+        "last_train_loss": 0.0371492436779663
+      },
+      "eval": {
+        "summary_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v10_wide384_b96/plots/random_val_overlays_n20_seed_20260525/summary.json",
+        "num_episodes": 20,
+        "xy_rmse_mean_m": 25.942866903755203,
+        "xy_rmse_median_m": 12.202205424828097,
+        "xy_rmse_min_m": 0.3415979624013802,
+        "xy_rmse_max_m": 146.4430216628638,
+        "yaw_rmse_mean_rad": 0.19558065507208752,
+        "yaw_rmse_median_rad": 0.09316825797862936,
+        "rollout_steps_mean": 3775.55,
+        "families": {
+          "aggressive_steer_brake": 1,
+          "aggressive_step_steer": 1,
+          "chirp_steer": 2,
+          "doublet_steer": 4,
+          "multi_steer": 7,
+          "sine_steer": 3,
+          "steer_brake": 1,
+          "sustained_turn": 1
+        }
+      }
+    },
+    {
+      "version": "v06",
+      "slug": "context96_b96",
+      "notes": "Longer context with reduced batch size.",
+      "config_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_sweep_v04_v18/configs/v06_context96_b96.json",
+      "output_dir": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v06_context96_b96",
+      "checkpoint_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v06_context96_b96/checkpoints/best_val.pt",
+      "started_at_utc": "2026-05-26T04:19:07.420012+00:00",
+      "model": {
+        "block_size": 96,
+        "n_layer": 6,
+        "n_head": 8,
+        "n_embd": 256,
+        "dropout": 0.0,
+        "bias": false,
+        "head_hidden_dim": 256
+      },
+      "optimizer": {
+        "lr": 0.0003,
+        "min_lr": 3e-05,
+        "weight_decay": 0.1,
+        "betas": [
+          0.9,
+          0.95
+        ],
+        "warmup_steps": 1000,
+        "grad_clip_norm": 1.0
+      },
+      "training_config": {
+        "seed": 2026052506,
+        "device": "cuda",
+        "batch_size": 96,
+        "num_workers": 0,
+        "num_epochs": 80,
+        "steps_per_epoch": 2000,
+        "max_val_batches": 200,
+        "compile": false
+      },
+      "status": "complete",
+      "finished_at_utc": "2026-05-26T04:20:00.503354+00:00",
+      "training": {
+        "epochs": 80,
+        "best_epoch": 80,
+        "best_val_loss": 0.0418166234758246,
+        "best_train_loss": 0.03621109682228416,
+        "last_epoch": 80,
+        "last_val_loss": 0.0418166234758246,
+        "last_train_loss": 0.03621109682228416
+      },
+      "eval": {
+        "summary_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v06_context96_b96/plots/random_val_overlays_n20_seed_20260525/summary.json",
+        "num_episodes": 20,
+        "xy_rmse_mean_m": 34.51516811258427,
+        "xy_rmse_median_m": 12.391908714244266,
+        "xy_rmse_min_m": 0.7532239999243533,
+        "xy_rmse_max_m": 220.25666845750663,
+        "yaw_rmse_mean_rad": 0.16371493561753392,
+        "yaw_rmse_median_rad": 0.06444569864007513,
+        "rollout_steps_mean": 3743.55,
+        "families": {
+          "aggressive_steer_brake": 1,
+          "aggressive_step_steer": 1,
+          "chirp_steer": 2,
+          "doublet_steer": 4,
+          "multi_steer": 7,
+          "sine_steer": 3,
+          "steer_brake": 1,
+          "sustained_turn": 1
+        }
+      }
+    },
+    {
+      "version": "v08",
+      "slug": "deeper8_b96",
+      "notes": "More transformer depth at the v1 width.",
+      "config_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_sweep_v04_v18/configs/v08_deeper8_b96.json",
+      "output_dir": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v08_deeper8_b96",
+      "checkpoint_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v08_deeper8_b96/checkpoints/best_val.pt",
+      "started_at_utc": "2026-05-26T04:20:00.505181+00:00",
+      "model": {
+        "block_size": 64,
+        "n_layer": 8,
+        "n_head": 8,
+        "n_embd": 256,
+        "dropout": 0.0,
+        "bias": false,
+        "head_hidden_dim": 256
+      },
+      "optimizer": {
+        "lr": 0.0003,
+        "min_lr": 3e-05,
+        "weight_decay": 0.1,
+        "betas": [
+          0.9,
+          0.95
+        ],
+        "warmup_steps": 1000,
+        "grad_clip_norm": 1.0
+      },
+      "training_config": {
+        "seed": 2026052508,
+        "device": "cuda",
+        "batch_size": 96,
+        "num_workers": 0,
+        "num_epochs": 80,
+        "steps_per_epoch": 2000,
+        "max_val_batches": 200,
+        "compile": false
+      },
+      "status": "complete",
+      "finished_at_utc": "2026-05-26T04:54:52.882603+00:00",
+      "training": {
+        "epochs": 80,
+        "best_epoch": 74,
+        "best_val_loss": 0.03972981321967382,
+        "best_train_loss": 0.03767268892237917,
+        "last_epoch": 80,
+        "last_val_loss": 0.05139673025667434,
+        "last_train_loss": 0.0371575475577265
+      },
+      "eval": {
+        "summary_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v08_deeper8_b96/plots/random_val_overlays_n20_seed_20260525/summary.json",
+        "num_episodes": 20,
+        "xy_rmse_mean_m": 38.27998097375403,
+        "xy_rmse_median_m": 12.568606590808646,
+        "xy_rmse_min_m": 0.10195604060743216,
+        "xy_rmse_max_m": 234.6540755159603,
+        "yaw_rmse_mean_rad": 0.185819758755842,
+        "yaw_rmse_median_rad": 0.09564851013561812,
+        "rollout_steps_mean": 3775.55,
+        "families": {
+          "aggressive_steer_brake": 1,
+          "aggressive_step_steer": 1,
+          "chirp_steer": 2,
+          "doublet_steer": 4,
+          "multi_steer": 7,
+          "sine_steer": 3,
+          "steer_brake": 1,
+          "sustained_turn": 1
+        }
+      }
+    },
+    {
+      "version": "v18",
+      "slug": "wide384_context96_b48",
+      "notes": "Wider model plus longer context.",
+      "config_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_sweep_v04_v18/configs/v18_wide384_context96_b48.json",
+      "output_dir": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v18_wide384_context96_b48",
+      "checkpoint_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v18_wide384_context96_b48/checkpoints/best_val.pt",
+      "started_at_utc": "2026-05-26T10:05:33.079998+00:00",
+      "model": {
+        "block_size": 96,
+        "n_layer": 8,
+        "n_head": 12,
+        "n_embd": 384,
+        "dropout": 0.0,
+        "bias": false,
+        "head_hidden_dim": 384
+      },
+      "optimizer": {
+        "lr": 0.0002,
+        "min_lr": 2e-05,
+        "weight_decay": 0.1,
+        "betas": [
+          0.9,
+          0.95
+        ],
+        "warmup_steps": 1000,
+        "grad_clip_norm": 1.0
+      },
+      "training_config": {
+        "seed": 2026052518,
+        "device": "cuda",
+        "batch_size": 48,
+        "num_workers": 0,
+        "num_epochs": 80,
+        "steps_per_epoch": 2000,
+        "max_val_batches": 200,
+        "compile": false
+      },
+      "status": "complete",
+      "finished_at_utc": "2026-05-26T10:53:38.474549+00:00",
+      "training": {
+        "epochs": 80,
+        "best_epoch": 75,
+        "best_val_loss": 0.02476066960265598,
+        "best_train_loss": 0.037429287122096866,
+        "last_epoch": 80,
+        "last_val_loss": 0.025213547774947075,
+        "last_train_loss": 0.036465447708033026
+      },
+      "eval": {
+        "summary_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v18_wide384_context96_b48/plots/random_val_overlays_n20_seed_20260525/summary.json",
+        "num_episodes": 20,
+        "xy_rmse_mean_m": 24.52068654031503,
+        "xy_rmse_median_m": 15.513179788256332,
+        "xy_rmse_min_m": 0.5324311869220477,
+        "xy_rmse_max_m": 153.0234037962004,
+        "yaw_rmse_mean_rad": 0.2014868513004964,
+        "yaw_rmse_median_rad": 0.07821414179868624,
+        "rollout_steps_mean": 3743.55,
+        "families": {
+          "aggressive_steer_brake": 1,
+          "aggressive_step_steer": 1,
+          "chirp_steer": 2,
+          "doublet_steer": 4,
+          "multi_steer": 7,
+          "sine_steer": 3,
+          "steer_brake": 1,
+          "sustained_turn": 1
+        }
+      }
+    },
+    {
+      "version": "v11",
+      "slug": "wide384_deep8_b64",
+      "notes": "Wider and deeper model with conservative batch size.",
+      "config_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_sweep_v04_v18/configs/v11_wide384_deep8_b64.json",
+      "output_dir": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v11_wide384_deep8_b64",
+      "checkpoint_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v11_wide384_deep8_b64/checkpoints/best_val.pt",
+      "started_at_utc": "2026-05-26T06:07:28.763226+00:00",
+      "model": {
+        "block_size": 64,
+        "n_layer": 8,
+        "n_head": 12,
+        "n_embd": 384,
+        "dropout": 0.0,
+        "bias": false,
+        "head_hidden_dim": 384
+      },
+      "optimizer": {
+        "lr": 0.0002,
+        "min_lr": 2e-05,
+        "weight_decay": 0.1,
+        "betas": [
+          0.9,
+          0.95
+        ],
+        "warmup_steps": 1000,
+        "grad_clip_norm": 1.0
+      },
+      "training_config": {
+        "seed": 2026052511,
+        "device": "cuda",
+        "batch_size": 64,
+        "num_workers": 0,
+        "num_epochs": 80,
+        "steps_per_epoch": 2000,
+        "max_val_batches": 200,
+        "compile": false
+      },
+      "status": "complete",
+      "finished_at_utc": "2026-05-26T06:49:06.998662+00:00",
+      "training": {
+        "epochs": 80,
+        "best_epoch": 72,
+        "best_val_loss": 0.036531654049395,
+        "best_train_loss": 0.03806994073884561,
+        "last_epoch": 80,
+        "last_val_loss": 0.0415271773954737,
+        "last_train_loss": 0.037191366526763886
+      },
+      "eval": {
+        "summary_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v11_wide384_deep8_b64/plots/random_val_overlays_n20_seed_20260525/summary.json",
+        "num_episodes": 20,
+        "xy_rmse_mean_m": 22.808833537325206,
+        "xy_rmse_median_m": 16.054673637417118,
+        "xy_rmse_min_m": 0.28085246070977743,
+        "xy_rmse_max_m": 96.08819089611116,
+        "yaw_rmse_mean_rad": 0.15176553825502065,
+        "yaw_rmse_median_rad": 0.07147358448369573,
+        "rollout_steps_mean": 3775.55,
+        "families": {
+          "aggressive_steer_brake": 1,
+          "aggressive_step_steer": 1,
+          "chirp_steer": 2,
+          "doublet_steer": 4,
+          "multi_steer": 7,
+          "sine_steer": 3,
+          "steer_brake": 1,
+          "sustained_turn": 1
+        }
+      }
+    },
+    {
+      "version": "v05",
+      "slug": "context64_b128",
+      "notes": "Moderate context length, same width/depth as v1.",
+      "config_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_sweep_v04_v18/configs/v05_context64_b128.json",
+      "output_dir": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v05_context64_b128",
+      "checkpoint_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v05_context64_b128/checkpoints/best_val.pt",
+      "started_at_utc": "2026-05-26T04:18:08.117712+00:00",
+      "model": {
+        "block_size": 64,
+        "n_layer": 6,
+        "n_head": 8,
+        "n_embd": 256,
+        "dropout": 0.0,
+        "bias": false,
+        "head_hidden_dim": 256
+      },
+      "optimizer": {
+        "lr": 0.0003,
+        "min_lr": 3e-05,
+        "weight_decay": 0.1,
+        "betas": [
+          0.9,
+          0.95
+        ],
+        "warmup_steps": 1000,
+        "grad_clip_norm": 1.0
+      },
+      "training_config": {
+        "seed": 2026052505,
+        "device": "cuda",
+        "batch_size": 128,
+        "num_workers": 0,
+        "num_epochs": 80,
+        "steps_per_epoch": 2000,
+        "max_val_batches": 200,
+        "compile": false
+      },
+      "status": "complete",
+      "finished_at_utc": "2026-05-26T04:19:07.419504+00:00",
+      "training": {
+        "epochs": 80,
+        "best_epoch": 76,
+        "best_val_loss": 0.03814536811565631,
+        "best_train_loss": 0.036393896329216656,
+        "last_epoch": 80,
+        "last_val_loss": 0.043610465012898204,
+        "last_train_loss": 0.037481481642462317
+      },
+      "eval": {
+        "summary_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v05_context64_b128/plots/random_val_overlays_n20_seed_20260525/summary.json",
+        "num_episodes": 20,
+        "xy_rmse_mean_m": 22.377754826260407,
+        "xy_rmse_median_m": 17.468332305231378,
+        "xy_rmse_min_m": 0.19095466826901297,
+        "xy_rmse_max_m": 126.38953072372134,
+        "yaw_rmse_mean_rad": 0.14325601697742787,
+        "yaw_rmse_median_rad": 0.08730835534820813,
+        "rollout_steps_mean": 3775.55,
+        "families": {
+          "aggressive_steer_brake": 1,
+          "aggressive_step_steer": 1,
+          "chirp_steer": 2,
+          "doublet_steer": 4,
+          "multi_steer": 7,
+          "sine_steer": 3,
+          "steer_brake": 1,
+          "sustained_turn": 1
+        }
+      }
+    }
+  ]
+}

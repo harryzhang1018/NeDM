@@ -1,0 +1,40 @@
+{
+  "processed_dataset_dir": "artifacts/training_datasets/hmmwv_turn_300g_plus_base_seq_v1",
+  "output_dir": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v10_wide384_b96",
+  "model": {
+    "block_size": 64,
+    "n_layer": 6,
+    "n_head": 12,
+    "n_embd": 384,
+    "dropout": 0.0,
+    "bias": false,
+    "head_hidden_dim": 384
+  },
+  "optimizer": {
+    "lr": 0.00025,
+    "min_lr": 2.5e-05,
+    "weight_decay": 0.1,
+    "betas": [
+      0.9,
+      0.95
+    ],
+    "warmup_steps": 1000,
+    "grad_clip_norm": 1.0
+  },
+  "training": {
+    "seed": 2026052510,
+    "device": "cuda",
+    "batch_size": 96,
+    "num_workers": 0,
+    "num_epochs": 80,
+    "steps_per_epoch": 2000,
+    "max_val_batches": 200,
+    "compile": false
+  },
+  "rollout_eval": {},
+  "sweep_recipe": {
+    "version": "v10",
+    "slug": "wide384_b96",
+    "notes": "Wider 384-dim model with 12 attention heads."
+  }
+}

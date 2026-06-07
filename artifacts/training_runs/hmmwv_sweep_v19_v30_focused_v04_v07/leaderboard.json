@@ -1,0 +1,6 @@
+{
+  "updated_at_utc": "2026-05-26T15:16:22.385199+00:00",
+  "rank_metric": "eval.xy_rmse_median_m, then eval.xy_rmse_mean_m",
+  "num_complete": 0,
+  "models": []
+}

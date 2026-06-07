@@ -1,0 +1,273 @@
+{
+  "processed_dataset_dir": "artifacts/training_datasets/hmmwv_turn_300g_plus_base_seq_v1",
+  "run_root": "artifacts/training_runs/hmmwv_sweep_v04_v18",
+  "eval": {
+    "split": "val",
+    "num_random": 20,
+    "seed": 20260525
+  },
+  "model_defaults": {
+    "block_size": 64,
+    "n_layer": 6,
+    "n_head": 8,
+    "n_embd": 256,
+    "dropout": 0.0,
+    "bias": false,
+    "head_hidden_dim": 256
+  },
+  "optimizer_defaults": {
+    "lr": 0.0003,
+    "min_lr": 3e-05,
+    "weight_decay": 0.1,
+    "betas": [
+      0.9,
+      0.95
+    ],
+    "warmup_steps": 1000,
+    "grad_clip_norm": 1.0
+  },
+  "training_defaults": {
+    "seed": 20260525,
+    "device": "auto",
+    "batch_size": 128,
+    "num_workers": 0,
+    "num_epochs": 80,
+    "steps_per_epoch": 2000,
+    "max_val_batches": 200,
+    "compile": false
+  },
+  "recipes": [
+    {
+      "version": "v04",
+      "slug": "long_baseline_b32",
+      "notes": "V3/v1-sized architecture with longer 80-epoch training.",
+      "model": {
+        "block_size": 32
+      },
+      "training": {
+        "batch_size": 256,
+        "seed": 2026052504
+      }
+    },
+    {
+      "version": "v05",
+      "slug": "context64_b128",
+      "notes": "Moderate context length, same width/depth as v1.",
+      "model": {
+        "block_size": 64
+      },
+      "training": {
+        "batch_size": 128,
+        "seed": 2026052505
+      }
+    },
+    {
+      "version": "v06",
+      "slug": "context96_b96",
+      "notes": "Longer context with reduced batch size.",
+      "model": {
+        "block_size": 96
+      },
+      "training": {
+        "batch_size": 96,
+        "seed": 2026052506
+      }
+    },
+    {
+      "version": "v07",
+      "slug": "context128_b64",
+      "notes": "Long context stress test on the 4090 memory budget.",
+      "model": {
+        "block_size": 128
+      },
+      "training": {
+        "batch_size": 64,
+        "seed": 2026052507
+      }
+    },
+    {
+      "version": "v08",
+      "slug": "deeper8_b96",
+      "notes": "More transformer depth at the v1 width.",
+      "model": {
+        "block_size": 64,
+        "n_layer": 8
+      },
+      "training": {
+        "batch_size": 96,
+        "seed": 2026052508
+      }
+    },
+    {
+      "version": "v09",
+      "slug": "deeper10_b64",
+      "notes": "Depth-heavy 256-wide transformer.",
+      "model": {
+        "block_size": 64,
+        "n_layer": 10
+      },
+      "training": {
+        "batch_size": 64,
+        "seed": 2026052509
+      }
+    },
+    {
+      "version": "v10",
+      "slug": "wide384_b96",
+      "notes": "Wider 384-dim model with 12 attention heads.",
+      "model": {
+        "block_size": 64,
+        "n_head": 12,
+        "n_embd": 384,
+        "head_hidden_dim": 384
+      },
+      "training": {
+        "batch_size": 96,
+        "seed": 2026052510
+      },
+      "optimizer": {
+        "lr": 0.00025,
+        "min_lr": 2.5e-05
+      }
+    },
+    {
+      "version": "v11",
+      "slug": "wide384_deep8_b64",
+      "notes": "Wider and deeper model with conservative batch size.",
+      "model": {
+        "block_size": 64,
+        "n_layer": 8,
+        "n_head": 12,
+        "n_embd": 384,
+        "head_hidden_dim": 384
+      },
+      "training": {
+        "batch_size": 64,
+        "seed": 2026052511
+      },
+      "optimizer": {
+        "lr": 0.0002,
+        "min_lr": 2e-05
+      }
+    },
+    {
+      "version": "v12",
+      "slug": "wide512_b48",
+      "notes": "Large-width 512-dim model with reduced batch size.",
+      "model": {
+        "block_size": 64,
+        "n_head": 16,
+        "n_embd": 512,
+        "head_hidden_dim": 512
+      },
+      "training": {
+        "batch_size": 48,
+        "seed": 2026052512
+      },
+      "optimizer": {
+        "lr": 0.00018,
+        "min_lr": 1.8e-05
+      }
+    },
+    {
+      "version": "v13",
+      "slug": "dropout384_b64",
+      "notes": "Wider model with dropout regularization for long training.",
+      "model": {
+        "block_size": 64,
+        "n_layer": 8,
+        "n_head": 12,
+        "n_embd": 384,
+        "dropout": 0.05,
+        "head_hidden_dim": 384
+      },
+      "training": {
+        "batch_size": 64,
+        "seed": 2026052513
+      },
+      "optimizer": {
+        "lr": 0.0002,
+        "min_lr": 2e-05
+      }
+    },
+    {
+      "version": "v14",
+      "slug": "high_lr_b128",
+      "notes": "Same shape as v05 with a more aggressive learning rate.",
+      "model": {
+        "block_size": 64
+      },
+      "training": {
+        "batch_size": 128,
+        "seed": 2026052514
+      },
+      "optimizer": {
+        "lr": 0.0005,
+        "min_lr": 5e-05,
+        "warmup_steps": 1500
+      }
+    },
+    {
+      "version": "v15",
+      "slug": "low_lr_b128",
+      "notes": "Same shape as v05 with a lower learning rate.",
+      "model": {
+        "block_size": 64
+      },
+      "training": {
+        "batch_size": 128,
+        "seed": 2026052515
+      },
+      "optimizer": {
+        "lr": 0.00015,
+        "min_lr": 1.5e-05
+      }
+    },
+    {
+      "version": "v16",
+      "slug": "compact4_b256",
+      "notes": "Smaller 4-layer model to test whether capacity is excessive.",
+      "model": {
+        "block_size": 64,
+        "n_layer": 4
+      },
+      "training": {
+        "batch_size": 256,
+        "seed": 2026052516
+      }
+    },
+    {
+      "version": "v17",
+      "slug": "head512_b96",
+      "notes": "V1 backbone with a larger prediction head.",
+      "model": {
+        "block_size": 64,
+        "head_hidden_dim": 512
+      },
+      "training": {
+        "batch_size": 96,
+        "seed": 2026052517
+      }
+    },
+    {
+      "version": "v18",
+      "slug": "wide384_context96_b48",
+      "notes": "Wider model plus longer context.",
+      "model": {
+        "block_size": 96,
+        "n_layer": 8,
+        "n_head": 12,
+        "n_embd": 384,
+        "head_hidden_dim": 384
+      },
+      "training": {
+        "batch_size": 48,
+        "seed": 2026052518
+      },
+      "optimizer": {
+        "lr": 0.0002,
+        "min_lr": 2e-05
+      }
+    }
+  ]
+}

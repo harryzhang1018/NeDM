@@ -1,0 +1,9 @@
+{
+  "updated_at_utc": "2026-05-26T15:16:22.385511+00:00",
+  "state": "running",
+  "stage": "train",
+  "message": "training v20_v04_context32_b192",
+  "current_model": "v20_v04_context32_b192",
+  "completed": 0,
+  "total": 12
+}

@@ -1,0 +1,40 @@
+{
+  "processed_dataset_dir": "artifacts/training_datasets/hmmwv_turn_300g_plus_base_seq_v1",
+  "output_dir": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v20_v04_context32_b192",
+  "model": {
+    "block_size": 32,
+    "n_layer": 6,
+    "n_head": 8,
+    "n_embd": 256,
+    "dropout": 0.0,
+    "bias": false,
+    "head_hidden_dim": 256
+  },
+  "optimizer": {
+    "lr": 0.0003,
+    "min_lr": 3e-05,
+    "weight_decay": 0.1,
+    "betas": [
+      0.9,
+      0.95
+    ],
+    "warmup_steps": 1000,
+    "grad_clip_norm": 1.0
+  },
+  "training": {
+    "seed": 2026052620,
+    "device": "cuda",
+    "batch_size": 192,
+    "num_workers": 0,
+    "num_epochs": 100,
+    "steps_per_epoch": 2000,
+    "max_val_batches": 200,
+    "compile": false
+  },
+  "rollout_eval": {},
+  "sweep_recipe": {
+    "version": "v20",
+    "slug": "v04_context32_b192",
+    "notes": "v04-family with slightly smaller batch for lower memory pressure."
+  }
+}

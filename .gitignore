@@ -1,0 +1,27 @@
+__pycache__/
+*.py[cod]
+.codex
+.agents/
+.vscode/
+
+# Project Chrono is treated as a local simulator dependency, not vendored source.
+chrono/
+
+# Never commit generated/raw datasets or processed cache arrays.
+artifacts/*
+!artifacts/training_runs/
+!artifacts/training_runs/**/
+artifacts/datasets/
+artifacts/training_datasets/
+
+# Keep training metadata and best checkpoints, but skip bulky duplicate/runtime outputs.
+artifacts/training_runs/*_interrupted_*/
+artifacts/training_runs/**/*.tmux_session
+artifacts/training_runs/**/plots/
+artifacts/training_runs/**/checkpoints/*
+!artifacts/training_runs/**/checkpoints/best_val.pt
+!artifacts/training_runs/**/*.json
+!artifacts/training_runs/**/*.jsonl
+!artifacts/training_runs/**/*.md
+!artifacts/training_runs/**/*.log
+!artifacts/training_runs/**/*.txt

@@ -1,0 +1,545 @@
+{
+  "split": "val",
+  "seed": 20260405,
+  "num_episodes": 10,
+  "episode_ids": [
+    "chirp_steer_00144",
+    "chirp_steer_00309",
+    "chirp_steer_00422",
+    "doublet_steer_00019",
+    "sine_steer_00431",
+    "steer_brake_00416",
+    "steer_brake_00813",
+    "step_steer_00203",
+    "step_steer_00210",
+    "step_steer_00491"
+  ],
+  "checkpoint_a": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v1/checkpoints/best_val.pt",
+  "checkpoint_b": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v2_block64/checkpoints/best_val.pt",
+  "checkpoint_a_epoch": 17,
+  "checkpoint_b_epoch": 20,
+  "aggregate": {
+    "xy_rmse_m": {
+      "model_a_avg": 0.7409287981688977,
+      "model_b_avg": 1.1478729501366616,
+      "delta_b_minus_a": 0.4069441519677639,
+      "relative_change_pct": 54.92351666900648,
+      "model_b_improved_episodes": 5,
+      "total_episodes": 10
+    },
+    "yaw_rmse_rad": {
+      "model_a_avg": 0.009281869139522314,
+      "model_b_avg": 0.010238177597057075,
+      "delta_b_minus_a": 0.0009563084575347613,
+      "relative_change_pct": 10.302972851263203,
+      "model_b_improved_episodes": 4,
+      "total_episodes": 10
+    },
+    "vel_body_x_mps": {
+      "model_a_avg": 0.3047587562352419,
+      "model_b_avg": 0.3704479567706585,
+      "delta_b_minus_a": 0.0656892005354166,
+      "relative_change_pct": 21.554491607358905,
+      "model_b_improved_episodes": 4,
+      "total_episodes": 10
+    },
+    "vel_body_y_mps": {
+      "model_a_avg": 0.0069459017366170885,
+      "model_b_avg": 0.007737600104883313,
+      "delta_b_minus_a": 0.0007916983682662243,
+      "relative_change_pct": 11.398064618343,
+      "model_b_improved_episodes": 5,
+      "total_episodes": 10
+    },
+    "yaw_rate_radps": {
+      "model_a_avg": 0.007984104566276073,
+      "model_b_avg": 0.008173101814463735,
+      "delta_b_minus_a": 0.00018899724818766117,
+      "relative_change_pct": 2.3671689995890524,
+      "model_b_improved_episodes": 5,
+      "total_episodes": 10
+    }
+  },
+  "episodes": [
+    {
+      "episode_id": "chirp_steer_00144",
+      "scenario_family": "chirp_steer",
+      "model_a": {
+        "vel_body_x_mps": 0.3755775988101959,
+        "vel_body_y_mps": 0.009359685704112053,
+        "roll_rad": 0.0006262584356591105,
+        "pitch_rad": 0.0015998127637431026,
+        "roll_rate_radps": 0.0035550964530557394,
+        "ang_vel_body_y_radps": 0.0020795671734958887,
+        "yaw_rate_radps": 0.005773209501057863,
+        "xy_rmse_m": 0.33016446232795715,
+        "yaw_rmse_rad": 0.02163657546043396
+      },
+      "model_b": {
+        "vel_body_x_mps": 1.358190655708313,
+        "vel_body_y_mps": 0.01238117553293705,
+        "roll_rad": 0.0011008462170138955,
+        "pitch_rad": 0.0018812497146427631,
+        "roll_rate_radps": 0.0036120403092354536,
+        "ang_vel_body_y_radps": 0.0029204979073256254,
+        "yaw_rate_radps": 0.009642680175602436,
+        "xy_rmse_m": 3.613084316253662,
+        "yaw_rmse_rad": 0.008906007744371891
+      },
+      "delta_b_minus_a": {
+        "vel_body_x_mps": 0.9826130568981171,
+        "vel_body_y_mps": 0.003021489828824997,
+        "roll_rad": 0.00047458778135478497,
+        "pitch_rad": 0.0002814369508996606,
+        "roll_rate_radps": 5.69438561797142e-05,
+        "ang_vel_body_y_radps": 0.0008409307338297367,
+        "yaw_rate_radps": 0.003869470674544573,
+        "xy_rmse_m": 3.282919853925705,
+        "yaw_rmse_rad": -0.012730567716062069
+      },
+      "model_b_improved": {
+        "vel_body_x_mps": false,
+        "vel_body_y_mps": false,
+        "roll_rad": false,
+        "pitch_rad": false,
+        "roll_rate_radps": false,
+        "ang_vel_body_y_radps": false,
+        "yaw_rate_radps": false,
+        "xy_rmse_m": false,
+        "yaw_rmse_rad": true
+      }
+    },
+    {
+      "episode_id": "chirp_steer_00309",
+      "scenario_family": "chirp_steer",
+      "model_a": {
+        "vel_body_x_mps": 0.20733048021793365,
+        "vel_body_y_mps": 0.0047826399095356464,
+        "roll_rad": 0.00047630409244447947,
+        "pitch_rad": 0.0006357154925353825,
+        "roll_rate_radps": 0.006937669590115547,
+        "ang_vel_body_y_radps": 0.008978712372481823,
+        "yaw_rate_radps": 0.00607977295294404,
+        "xy_rmse_m": 0.31921860575675964,
+        "yaw_rmse_rad": 0.0033724408131092787
+      },
+      "model_b": {
+        "vel_body_x_mps": 0.26876094937324524,
+        "vel_body_y_mps": 0.0043403091840445995,
+        "roll_rad": 0.0006867567426525056,
+        "pitch_rad": 0.0007699786801822484,
+        "roll_rate_radps": 0.0114403385668993,
+        "ang_vel_body_y_radps": 0.01454756036400795,
+        "yaw_rate_radps": 0.005868860054761171,
+        "xy_rmse_m": 0.3982594311237335,
+        "yaw_rmse_rad": 0.006779232528060675
+      },
+      "delta_b_minus_a": {
+        "vel_body_x_mps": 0.061430469155311584,
+        "vel_body_y_mps": -0.0004423307254910469,
+        "roll_rad": 0.00021045265020802617,
+        "pitch_rad": 0.00013426318764686584,
+        "roll_rate_radps": 0.0045026689767837524,
+        "ang_vel_body_y_radps": 0.005568847991526127,
+        "yaw_rate_radps": -0.00021091289818286896,
+        "xy_rmse_m": 0.07904082536697388,
+        "yaw_rmse_rad": 0.003406791714951396
+      },
+      "model_b_improved": {
+        "vel_body_x_mps": false,
+        "vel_body_y_mps": true,
+        "roll_rad": false,
+        "pitch_rad": false,
+        "roll_rate_radps": false,
+        "ang_vel_body_y_radps": false,
+        "yaw_rate_radps": true,
+        "xy_rmse_m": false,
+        "yaw_rmse_rad": false
+      }
+    },
+    {
+      "episode_id": "chirp_steer_00422",
+      "scenario_family": "chirp_steer",
+      "model_a": {
+        "vel_body_x_mps": 0.34170013666152954,
+        "vel_body_y_mps": 0.007192851509898901,
+        "roll_rad": 0.0007163865957409143,
+        "pitch_rad": 0.0009170591365545988,
+        "roll_rate_radps": 0.00911693274974823,
+        "ang_vel_body_y_radps": 0.010221273638308048,
+        "yaw_rate_radps": 0.010386532172560692,
+        "xy_rmse_m": 0.7109518647193909,
+        "yaw_rmse_rad": 0.005427060183137655
+      },
+      "model_b": {
+        "vel_body_x_mps": 0.6368879079818726,
+        "vel_body_y_mps": 0.015435980632901192,
+        "roll_rad": 0.0014514366630464792,
+        "pitch_rad": 0.0015693120658397675,
+        "roll_rate_radps": 0.013124060817062855,
+        "ang_vel_body_y_radps": 0.015120377764105797,
+        "yaw_rate_radps": 0.013542385771870613,
+        "xy_rmse_m": 2.8569414615631104,
+        "yaw_rmse_rad": 0.007434706203639507
+      },
+      "delta_b_minus_a": {
+        "vel_body_x_mps": 0.295187771320343,
+        "vel_body_y_mps": 0.00824312912300229,
+        "roll_rad": 0.0007350500673055649,
+        "pitch_rad": 0.0006522529292851686,
+        "roll_rate_radps": 0.004007128067314625,
+        "ang_vel_body_y_radps": 0.0048991041257977486,
+        "yaw_rate_radps": 0.0031558535993099213,
+        "xy_rmse_m": 2.1459895968437195,
+        "yaw_rmse_rad": 0.002007646020501852
+      },
+      "model_b_improved": {
+        "vel_body_x_mps": false,
+        "vel_body_y_mps": false,
+        "roll_rad": false,
+        "pitch_rad": false,
+        "roll_rate_radps": false,
+        "ang_vel_body_y_radps": false,
+        "yaw_rate_radps": false,
+        "xy_rmse_m": false,
+        "yaw_rmse_rad": false
+      }
+    },
+    {
+      "episode_id": "doublet_steer_00019",
+      "scenario_family": "doublet_steer",
+      "model_a": {
+        "vel_body_x_mps": 0.13499121367931366,
+        "vel_body_y_mps": 0.003697281936183572,
+        "roll_rad": 0.0008826939156278968,
+        "pitch_rad": 0.00090066745178774,
+        "roll_rate_radps": 0.014385252259671688,
+        "ang_vel_body_y_radps": 0.01583213359117508,
+        "yaw_rate_radps": 0.010516446083784103,
+        "xy_rmse_m": 0.744935154914856,
+        "yaw_rmse_rad": 0.0034781971480697393
+      },
+      "model_b": {
+        "vel_body_x_mps": 0.2079739272594452,
+        "vel_body_y_mps": 0.003916118759661913,
+        "roll_rad": 0.0011146635515615344,
+        "pitch_rad": 0.0011092860950157046,
+        "roll_rate_radps": 0.01503811590373516,
+        "ang_vel_body_y_radps": 0.014980713836848736,
+        "yaw_rate_radps": 0.007705523632466793,
+        "xy_rmse_m": 1.0351135730743408,
+        "yaw_rmse_rad": 0.0025564052630215883
+      },
+      "delta_b_minus_a": {
+        "vel_body_x_mps": 0.07298271358013153,
+        "vel_body_y_mps": 0.0002188368234783411,
+        "roll_rad": 0.00023196963593363762,
+        "pitch_rad": 0.00020861864322796464,
+        "roll_rate_radps": 0.0006528636440634727,
+        "ang_vel_body_y_radps": -0.0008514197543263435,
+        "yaw_rate_radps": -0.0028109224513173103,
+        "xy_rmse_m": 0.29017841815948486,
+        "yaw_rmse_rad": -0.000921791885048151
+      },
+      "model_b_improved": {
+        "vel_body_x_mps": false,
+        "vel_body_y_mps": false,
+        "roll_rad": false,
+        "pitch_rad": false,
+        "roll_rate_radps": false,
+        "ang_vel_body_y_radps": true,
+        "yaw_rate_radps": true,
+        "xy_rmse_m": false,
+        "yaw_rmse_rad": true
+      }
+    },
+    {
+      "episode_id": "sine_steer_00431",
+      "scenario_family": "sine_steer",
+      "model_a": {
+        "vel_body_x_mps": 0.19567640125751495,
+        "vel_body_y_mps": 0.004044387489557266,
+        "roll_rad": 0.0004929599817842245,
+        "pitch_rad": 0.0006473126704804599,
+        "roll_rate_radps": 0.005346284247934818,
+        "ang_vel_body_y_radps": 0.008640731684863567,
+        "yaw_rate_radps": 0.006548836827278137,
+        "xy_rmse_m": 0.3190211355686188,
+        "yaw_rmse_rad": 0.0023967211600393057
+      },
+      "model_b": {
+        "vel_body_x_mps": 0.16052058339118958,
+        "vel_body_y_mps": 0.0036362498067319393,
+        "roll_rad": 0.0005727240350097418,
+        "pitch_rad": 0.000802366528660059,
+        "roll_rate_radps": 0.008857566863298416,
+        "ang_vel_body_y_radps": 0.014013820327818394,
+        "yaw_rate_radps": 0.003781215287744999,
+        "xy_rmse_m": 0.2502010762691498,
+        "yaw_rmse_rad": 0.002556938212364912
+      },
+      "delta_b_minus_a": {
+        "vel_body_x_mps": -0.03515581786632538,
+        "vel_body_y_mps": -0.0004081376828253269,
+        "roll_rad": 7.976405322551727e-05,
+        "pitch_rad": 0.00015505385817959905,
+        "roll_rate_radps": 0.003511282615363598,
+        "ang_vel_body_y_radps": 0.005373088642954826,
+        "yaw_rate_radps": -0.0027676215395331383,
+        "xy_rmse_m": -0.068820059299469,
+        "yaw_rmse_rad": 0.00016021705232560635
+      },
+      "model_b_improved": {
+        "vel_body_x_mps": true,
+        "vel_body_y_mps": true,
+        "roll_rad": false,
+        "pitch_rad": false,
+        "roll_rate_radps": false,
+        "ang_vel_body_y_radps": false,
+        "yaw_rate_radps": true,
+        "xy_rmse_m": true,
+        "yaw_rmse_rad": false
+      }
+    },
+    {
+      "episode_id": "steer_brake_00416",
+      "scenario_family": "steer_brake",
+      "model_a": {
+        "vel_body_x_mps": 0.30186450481414795,
+        "vel_body_y_mps": 0.00788339227437973,
+        "roll_rad": 0.0015748640289530158,
+        "pitch_rad": 0.0013098727213218808,
+        "roll_rate_radps": 0.012699050828814507,
+        "ang_vel_body_y_radps": 0.014195634052157402,
+        "yaw_rate_radps": 0.011283610947430134,
+        "xy_rmse_m": 0.9917895793914795,
+        "yaw_rmse_rad": 0.00545910932123661
+      },
+      "model_b": {
+        "vel_body_x_mps": 0.12529587745666504,
+        "vel_body_y_mps": 0.005551687907427549,
+        "roll_rad": 0.0008363411179743707,
+        "pitch_rad": 0.000811072823125869,
+        "roll_rate_radps": 0.01364576444029808,
+        "ang_vel_body_y_radps": 0.015081683173775673,
+        "yaw_rate_radps": 0.00595824932679534,
+        "xy_rmse_m": 0.3200512230396271,
+        "yaw_rmse_rad": 0.01309323962777853
+      },
+      "delta_b_minus_a": {
+        "vel_body_x_mps": -0.1765686273574829,
+        "vel_body_y_mps": -0.002331704366952181,
+        "roll_rad": -0.0007385229109786451,
+        "pitch_rad": -0.0004987998981960118,
+        "roll_rate_radps": 0.0009467136114835739,
+        "ang_vel_body_y_radps": 0.0008860491216182709,
+        "yaw_rate_radps": -0.005325361620634794,
+        "xy_rmse_m": -0.6717383563518524,
+        "yaw_rmse_rad": 0.00763413030654192
+      },
+      "model_b_improved": {
+        "vel_body_x_mps": true,
+        "vel_body_y_mps": true,
+        "roll_rad": true,
+        "pitch_rad": true,
+        "roll_rate_radps": false,
+        "ang_vel_body_y_radps": false,
+        "yaw_rate_radps": true,
+        "xy_rmse_m": true,
+        "yaw_rmse_rad": false
+      }
+    },
+    {
+      "episode_id": "steer_brake_00813",
+      "scenario_family": "steer_brake",
+      "model_a": {
+        "vel_body_x_mps": 0.07726196944713593,
+        "vel_body_y_mps": 0.00244265329092741,
+        "roll_rad": 0.00040598452324047685,
+        "pitch_rad": 0.0006900850567035377,
+        "roll_rate_radps": 0.004303216002881527,
+        "ang_vel_body_y_radps": 0.00956419575959444,
+        "yaw_rate_radps": 0.004443388432264328,
+        "xy_rmse_m": 0.2952001690864563,
+        "yaw_rmse_rad": 0.010757937096059322
+      },
+      "model_b": {
+        "vel_body_x_mps": 0.10905960202217102,
+        "vel_body_y_mps": 0.002271842211484909,
+        "roll_rad": 0.00031563371885567904,
+        "pitch_rad": 0.00039154617115855217,
+        "roll_rate_radps": 0.0038268270436674356,
+        "ang_vel_body_y_radps": 0.008379446342587471,
+        "yaw_rate_radps": 0.006249302066862583,
+        "xy_rmse_m": 0.17343543469905853,
+        "yaw_rmse_rad": 0.0031875893473625183
+      },
+      "delta_b_minus_a": {
+        "vel_body_x_mps": 0.031797632575035095,
+        "vel_body_y_mps": -0.00017081107944250107,
+        "roll_rad": -9.035080438479781e-05,
+        "pitch_rad": -0.00029853888554498553,
+        "roll_rate_radps": -0.0004763889592140913,
+        "ang_vel_body_y_radps": -0.0011847494170069695,
+        "yaw_rate_radps": 0.0018059136345982552,
+        "xy_rmse_m": -0.12176473438739777,
+        "yaw_rmse_rad": -0.007570347748696804
+      },
+      "model_b_improved": {
+        "vel_body_x_mps": false,
+        "vel_body_y_mps": true,
+        "roll_rad": true,
+        "pitch_rad": true,
+        "roll_rate_radps": true,
+        "ang_vel_body_y_radps": true,
+        "yaw_rate_radps": false,
+        "xy_rmse_m": true,
+        "yaw_rmse_rad": true
+      }
+    },
+    {
+      "episode_id": "step_steer_00203",
+      "scenario_family": "step_steer",
+      "model_a": {
+        "vel_body_x_mps": 0.9940677285194397,
+        "vel_body_y_mps": 0.015178865753114223,
+        "roll_rad": 0.0012860862771049142,
+        "pitch_rad": 0.0016816651914268732,
+        "roll_rate_radps": 0.009855514392256737,
+        "ang_vel_body_y_radps": 0.012239322066307068,
+        "yaw_rate_radps": 0.009076081216335297,
+        "xy_rmse_m": 2.366670846939087,
+        "yaw_rmse_rad": 0.016005614772439003
+      },
+      "model_b": {
+        "vel_body_x_mps": 0.4284273087978363,
+        "vel_body_y_mps": 0.015763765200972557,
+        "roll_rad": 0.0011601884616538882,
+        "pitch_rad": 0.001447163405828178,
+        "roll_rate_radps": 0.012092843651771545,
+        "ang_vel_body_y_radps": 0.016239192336797714,
+        "yaw_rate_radps": 0.011933688074350357,
+        "xy_rmse_m": 1.5102577209472656,
+        "yaw_rmse_rad": 0.0331137590110302
+      },
+      "delta_b_minus_a": {
+        "vel_body_x_mps": -0.5656404197216034,
+        "vel_body_y_mps": 0.0005848994478583336,
+        "roll_rad": -0.00012589781545102596,
+        "pitch_rad": -0.00023450178559869528,
+        "roll_rate_radps": 0.0022373292595148087,
+        "ang_vel_body_y_radps": 0.003999870270490646,
+        "yaw_rate_radps": 0.0028576068580150604,
+        "xy_rmse_m": -0.8564131259918213,
+        "yaw_rmse_rad": 0.017108144238591194
+      },
+      "model_b_improved": {
+        "vel_body_x_mps": true,
+        "vel_body_y_mps": false,
+        "roll_rad": true,
+        "pitch_rad": true,
+        "roll_rate_radps": false,
+        "ang_vel_body_y_radps": false,
+        "yaw_rate_radps": false,
+        "xy_rmse_m": true,
+        "yaw_rmse_rad": false
+      }
+    },
+    {
+      "episode_id": "step_steer_00210",
+      "scenario_family": "step_steer",
+      "model_a": {
+        "vel_body_x_mps": 0.06136776879429817,
+        "vel_body_y_mps": 0.0023884510155767202,
+        "roll_rad": 0.0005186963244341314,
+        "pitch_rad": 0.0007610481115989387,
+        "roll_rate_radps": 0.007516867481172085,
+        "ang_vel_body_y_radps": 0.014211536385118961,
+        "yaw_rate_radps": 0.00479514803737402,
+        "xy_rmse_m": 0.09088864177465439,
+        "yaw_rmse_rad": 0.00277170748449862
+      },
+      "model_b": {
+        "vel_body_x_mps": 0.08478384464979172,
+        "vel_body_y_mps": 0.0025721765123307705,
+        "roll_rad": 0.0005884643760509789,
+        "pitch_rad": 0.0008470105240121484,
+        "roll_rate_radps": 0.008665113709867,
+        "ang_vel_body_y_radps": 0.013656231574714184,
+        "yaw_rate_radps": 0.004713157657533884,
+        "xy_rmse_m": 0.2011423110961914,
+        "yaw_rmse_rad": 0.0019506715470924973
+      },
+      "delta_b_minus_a": {
+        "vel_body_x_mps": 0.023416075855493546,
+        "vel_body_y_mps": 0.00018372549675405025,
+        "roll_rad": 6.976805161684752e-05,
+        "pitch_rad": 8.596241241320968e-05,
+        "roll_rate_radps": 0.0011482462286949158,
+        "ang_vel_body_y_radps": -0.0005553048104047775,
+        "yaw_rate_radps": -8.199037984013557e-05,
+        "xy_rmse_m": 0.11025366932153702,
+        "yaw_rmse_rad": -0.0008210359374061227
+      },
+      "model_b_improved": {
+        "vel_body_x_mps": false,
+        "vel_body_y_mps": false,
+        "roll_rad": false,
+        "pitch_rad": false,
+        "roll_rate_radps": false,
+        "ang_vel_body_y_radps": true,
+        "yaw_rate_radps": true,
+        "xy_rmse_m": false,
+        "yaw_rmse_rad": true
+      }
+    },
+    {
+      "episode_id": "step_steer_00491",
+      "scenario_family": "step_steer",
+      "model_a": {
+        "vel_body_x_mps": 0.3577497601509094,
+        "vel_body_y_mps": 0.01248880848288536,
+        "roll_rad": 0.0012962371110916138,
+        "pitch_rad": 0.001372240367345512,
+        "roll_rate_radps": 0.015727095305919647,
+        "ang_vel_body_y_radps": 0.015904994681477547,
+        "yaw_rate_radps": 0.01093801949173212,
+        "xy_rmse_m": 1.2404475212097168,
+        "yaw_rmse_rad": 0.021513327956199646
+      },
+      "model_b": {
+        "vel_body_x_mps": 0.3245789110660553,
+        "vel_body_y_mps": 0.011506695300340652,
+        "roll_rad": 0.0013751945225521922,
+        "pitch_rad": 0.0014278889866545796,
+        "roll_rate_radps": 0.01682811789214611,
+        "ang_vel_body_y_radps": 0.017887916415929794,
+        "yaw_rate_radps": 0.01233595609664917,
+        "xy_rmse_m": 1.120242953300476,
+        "yaw_rmse_rad": 0.022803226485848427
+      },
+      "delta_b_minus_a": {
+        "vel_body_x_mps": -0.033170849084854126,
+        "vel_body_y_mps": -0.0009821131825447083,
+        "roll_rad": 7.895741146057844e-05,
+        "pitch_rad": 5.5648619309067726e-05,
+        "roll_rate_radps": 0.0011010225862264633,
+        "ang_vel_body_y_radps": 0.0019829217344522476,
+        "yaw_rate_radps": 0.0013979366049170494,
+        "xy_rmse_m": -0.12020456790924072,
+        "yaw_rmse_rad": 0.0012898985296487808
+      },
+      "model_b_improved": {
+        "vel_body_x_mps": true,
+        "vel_body_y_mps": true,
+        "roll_rad": false,
+        "pitch_rad": false,
+        "roll_rate_radps": false,
+        "ang_vel_body_y_radps": false,
+        "yaw_rate_radps": false,
+        "xy_rmse_m": true,
+        "yaw_rmse_rad": false
+      }
+    }
+  ]
+}

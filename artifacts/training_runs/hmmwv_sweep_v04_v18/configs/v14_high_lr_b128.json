@@ -1,0 +1,40 @@
+{
+  "processed_dataset_dir": "artifacts/training_datasets/hmmwv_turn_300g_plus_base_seq_v1",
+  "output_dir": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v14_high_lr_b128",
+  "model": {
+    "block_size": 64,
+    "n_layer": 6,
+    "n_head": 8,
+    "n_embd": 256,
+    "dropout": 0.0,
+    "bias": false,
+    "head_hidden_dim": 256
+  },
+  "optimizer": {
+    "lr": 0.0005,
+    "min_lr": 5e-05,
+    "weight_decay": 0.1,
+    "betas": [
+      0.9,
+      0.95
+    ],
+    "warmup_steps": 1500,
+    "grad_clip_norm": 1.0
+  },
+  "training": {
+    "seed": 2026052514,
+    "device": "cuda",
+    "batch_size": 128,
+    "num_workers": 0,
+    "num_epochs": 80,
+    "steps_per_epoch": 2000,
+    "max_val_batches": 200,
+    "compile": false
+  },
+  "rollout_eval": {},
+  "sweep_recipe": {
+    "version": "v14",
+    "slug": "high_lr_b128",
+    "notes": "Same shape as v05 with a more aggressive learning rate."
+  }
+}

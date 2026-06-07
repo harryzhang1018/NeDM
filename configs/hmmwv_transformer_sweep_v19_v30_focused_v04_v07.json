@@ -1,0 +1,201 @@
+{
+  "processed_dataset_dir": "artifacts/training_datasets/hmmwv_turn_300g_plus_base_seq_v1",
+  "run_root": "artifacts/training_runs/hmmwv_sweep_v19_v30_focused_v04_v07",
+  "eval": {
+    "split": "val",
+    "num_random": 20,
+    "seed": 20260525
+  },
+  "model_defaults": {
+    "block_size": 64,
+    "n_layer": 6,
+    "n_head": 8,
+    "n_embd": 256,
+    "dropout": 0.0,
+    "bias": false,
+    "head_hidden_dim": 256
+  },
+  "optimizer_defaults": {
+    "lr": 0.0003,
+    "min_lr": 0.00003,
+    "weight_decay": 0.1,
+    "betas": [
+      0.9,
+      0.95
+    ],
+    "warmup_steps": 1000,
+    "grad_clip_norm": 1.0
+  },
+  "training_defaults": {
+    "seed": 20260526,
+    "device": "auto",
+    "batch_size": 128,
+    "num_workers": 0,
+    "num_epochs": 100,
+    "steps_per_epoch": 2000,
+    "max_val_batches": 200,
+    "compile": false
+  },
+  "recipes": [
+    {
+      "version": "v19",
+      "slug": "v04_context32_b256_seed",
+      "notes": "v04-family repeat: short context, large batch, new seed.",
+      "model": {
+        "block_size": 32
+      },
+      "training": {
+        "batch_size": 256,
+        "seed": 2026052619
+      }
+    },
+    {
+      "version": "v20",
+      "slug": "v04_context32_b192",
+      "notes": "v04-family with slightly smaller batch for lower memory pressure.",
+      "model": {
+        "block_size": 32
+      },
+      "training": {
+        "batch_size": 192,
+        "seed": 2026052620
+      }
+    },
+    {
+      "version": "v21",
+      "slug": "v04_context32_lr2e4",
+      "notes": "v04-family with more conservative learning rate.",
+      "model": {
+        "block_size": 32
+      },
+      "optimizer": {
+        "lr": 0.0002,
+        "min_lr": 0.00002
+      },
+      "training": {
+        "batch_size": 256,
+        "seed": 2026052621
+      }
+    },
+    {
+      "version": "v22",
+      "slug": "v04_context32_dropout03",
+      "notes": "v04-family with light dropout to reduce long-rollout drift.",
+      "model": {
+        "block_size": 32,
+        "dropout": 0.03
+      },
+      "training": {
+        "batch_size": 256,
+        "seed": 2026052622
+      }
+    },
+    {
+      "version": "v23",
+      "slug": "v04_context32_deep8",
+      "notes": "v04-family with more transformer depth.",
+      "model": {
+        "block_size": 32,
+        "n_layer": 8
+      },
+      "training": {
+        "batch_size": 192,
+        "seed": 2026052623
+      }
+    },
+    {
+      "version": "v24",
+      "slug": "v04_context48_b192",
+      "notes": "v04-family with a small context increase toward the v07 direction.",
+      "model": {
+        "block_size": 48
+      },
+      "training": {
+        "batch_size": 192,
+        "seed": 2026052624
+      }
+    },
+    {
+      "version": "v25",
+      "slug": "v07_context128_b64_seed",
+      "notes": "v07-family repeat: long context, same batch, new seed.",
+      "model": {
+        "block_size": 128
+      },
+      "training": {
+        "batch_size": 64,
+        "seed": 2026052625
+      }
+    },
+    {
+      "version": "v26",
+      "slug": "v07_context128_b48",
+      "notes": "v07-family with smaller batch for lower memory pressure.",
+      "model": {
+        "block_size": 128
+      },
+      "training": {
+        "batch_size": 48,
+        "seed": 2026052626
+      }
+    },
+    {
+      "version": "v27",
+      "slug": "v07_context128_lr2e4",
+      "notes": "v07-family with more conservative learning rate.",
+      "model": {
+        "block_size": 128
+      },
+      "optimizer": {
+        "lr": 0.0002,
+        "min_lr": 0.00002
+      },
+      "training": {
+        "batch_size": 64,
+        "seed": 2026052627
+      }
+    },
+    {
+      "version": "v28",
+      "slug": "v07_context128_dropout03",
+      "notes": "v07-family with light dropout to test outlier control.",
+      "model": {
+        "block_size": 128,
+        "dropout": 0.03
+      },
+      "training": {
+        "batch_size": 64,
+        "seed": 2026052628
+      }
+    },
+    {
+      "version": "v29",
+      "slug": "v07_context128_head512",
+      "notes": "v07-family with larger prediction head.",
+      "model": {
+        "block_size": 128,
+        "head_hidden_dim": 512
+      },
+      "training": {
+        "batch_size": 48,
+        "seed": 2026052629
+      }
+    },
+    {
+      "version": "v30",
+      "slug": "v07_context160_b40_lr2e4",
+      "notes": "v07-family with even longer context and conservative batch/lr.",
+      "model": {
+        "block_size": 160
+      },
+      "optimizer": {
+        "lr": 0.0002,
+        "min_lr": 0.00002
+      },
+      "training": {
+        "batch_size": 40,
+        "seed": 2026052630
+      }
+    }
+  ]
+}
