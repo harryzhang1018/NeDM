@@ -1,0 +1,10 @@
+# Python-only dependencies for the HMMWV dynamics scripts.
+# Prefer `conda env create -f environment.yml` for a full environment,
+# because PyChrono is installed from conda channels.
+matplotlib==3.10.6
+pandas==2.3.3
+pillow==11.3.0
+torch==2.8.0
+torchvision==0.23.0
+tensorboard==2.20.0
+onnx==1.19.0

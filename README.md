@@ -7,6 +7,7 @@ The attached research note at [deep-research-report-vehicle.md](deep-research-re
 Start with [docs/data_collection_pipeline.md](docs/data_collection_pipeline.md), then run:
 
 ```bash
+conda env create -f environment.yml
 conda activate tutorial
 python scripts/collect_hmmwv_dataset.py --config configs/hmmwv_overfit_v1.json
 ```
@@ -25,6 +26,17 @@ python scripts/collect_hmmwv_dataset.py --config configs/hmmwv_overfit_v1.json
 The first HMMWV training pipeline is documented in [docs/hmmwv_training_pipeline.md](docs/hmmwv_training_pipeline.md).
 
 Pretrained checkpoints are tracked with Git LFS. See [docs/model_checkpoints.md](docs/model_checkpoints.md) for the current best HMMWV dynamics checkpoints and loading instructions.
+
+Set up the same environment used for training:
+
+```bash
+conda env create -f environment.yml
+conda activate tutorial
+git lfs install
+git lfs pull
+```
+
+`environment.yml` is the recommended portable setup file. `environment.lock.yml` is a fuller no-build export of the current `tutorial` environment for closer reproduction on Linux.
 
 Build the processed training cache from the episode CSVs:
 
