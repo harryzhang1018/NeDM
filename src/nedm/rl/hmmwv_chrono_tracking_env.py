@@ -44,6 +44,8 @@ def default_chrono_env_cfg() -> dict[str, Any]:
             "chrono_config": "configs/hmmwv_overfit_v1.json",
             "chrono_step_size_s": None,
             "warm_start_context": True,
+            # Max steering-command change per policy step; None disables the filter.
+            "steering_rate_limit": None,
             # Offscreen Irrlicht rendering (saves one PNG per render frame; no interactive window required,
             # but still needs an X/GL context, e.g. a desktop session or `xvfb-run`).
             "render": False,
@@ -491,6 +493,14 @@ class HMMWVChronoTrackingEnv(VecEnv):
     def step(self, actions: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, dict]:
         actions = actions.to(device=self.device, dtype=torch.float32)
         driver_actions = self._scale_policy_actions(actions)
+        steering_rate_limit = self.cfg.get("steering_rate_limit")
+        if steering_rate_limit is not None:
+            limit = float(steering_rate_limit)
+            driver_actions[:, 0] = torch.clamp(
+                driver_actions[:, 0],
+                self.last_actions[:, 0] - limit,
+                self.last_actions[:, 0] + limit,
+            )
         self.actions = driver_actions
         driver_actions_cpu = driver_actions.detach().cpu().numpy()
 

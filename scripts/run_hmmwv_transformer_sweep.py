@@ -84,7 +84,7 @@ def build_config(sweep: dict[str, Any], recipe: dict[str, Any], output_dir: Path
     optimizer_cfg = deep_merge(sweep["optimizer_defaults"], recipe.get("optimizer"))
     training_cfg = deep_merge(sweep["training_defaults"], recipe.get("training"))
     return {
-        "processed_dataset_dir": sweep["processed_dataset_dir"],
+        "processed_dataset_dir": recipe.get("processed_dataset_dir", sweep["processed_dataset_dir"]),
         "output_dir": str(output_dir),
         "model": model_cfg,
         "optimizer": optimizer_cfg,

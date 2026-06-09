@@ -179,7 +179,9 @@ def configure_chrono_data_paths(repo_root: Path, config: dict[str, Any]) -> None
     chrono_data_root = resolve_project_path(repo_root, config["chrono_data_root"])
     vehicle_data_root = resolve_project_path(repo_root, config["vehicle_data_root"])
     chrono.SetChronoDataPath(str(chrono_data_root) + "/")
-    veh.SetDataPath(str(vehicle_data_root) + "/")
+    # Chrono 10 renamed vehicle.SetDataPath to vehicle.SetVehicleDataPath.
+    set_vehicle_data_path = getattr(veh, "SetVehicleDataPath", None) or veh.SetDataPath
+    set_vehicle_data_path(str(vehicle_data_root) + "/")
 
 
 def build_output_root(repo_root: Path, config: dict[str, Any], override: str | None) -> Path:

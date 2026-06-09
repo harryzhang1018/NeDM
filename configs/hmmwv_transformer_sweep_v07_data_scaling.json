@@ -1,0 +1,77 @@
+{
+  "processed_dataset_dir": "artifacts/training_datasets/hmmwv_turn_300g_plus_base_seq_v1",
+  "run_root": "artifacts/training_runs/hmmwv_sweep_v07_data_scaling",
+  "eval": {
+    "split": "val",
+    "num_random": 20,
+    "seed": 20260525
+  },
+  "model_defaults": {
+    "block_size": 128,
+    "n_layer": 6,
+    "n_head": 8,
+    "n_embd": 256,
+    "dropout": 0.0,
+    "bias": false,
+    "head_hidden_dim": 256
+  },
+  "optimizer_defaults": {
+    "lr": 0.0003,
+    "min_lr": 0.00003,
+    "weight_decay": 0.1,
+    "betas": [
+      0.9,
+      0.95
+    ],
+    "warmup_steps": 1000,
+    "grad_clip_norm": 1.0
+  },
+  "training_defaults": {
+    "seed": 2026052507,
+    "device": "auto",
+    "batch_size": 64,
+    "num_workers": 0,
+    "num_epochs": 80,
+    "steps_per_epoch": 2000,
+    "max_val_batches": 200,
+    "compile": false
+  },
+  "recipes": [
+    {
+      "version": "d200",
+      "slug": "v07_200g",
+      "notes": "v07 recipe on 200 GB uniform-stratified subset (2/3 of full train pool).",
+      "processed_dataset_dir": "artifacts/training_datasets/hmmwv_v07_scaling_200g_seq_v1"
+    },
+    {
+      "version": "d100",
+      "slug": "v07_100g",
+      "notes": "v07 recipe on 100 GB uniform-stratified subset (1/3 of full train pool).",
+      "processed_dataset_dir": "artifacts/training_datasets/hmmwv_v07_scaling_100g_seq_v1"
+    },
+    {
+      "version": "d050",
+      "slug": "v07_050g",
+      "notes": "v07 recipe on 50 GB uniform-stratified subset (1/6 of full train pool).",
+      "processed_dataset_dir": "artifacts/training_datasets/hmmwv_v07_scaling_050g_seq_v1"
+    },
+    {
+      "version": "d025",
+      "slug": "v07_025g",
+      "notes": "v07 recipe on 25 GB uniform-stratified subset (1/12 of full train pool).",
+      "processed_dataset_dir": "artifacts/training_datasets/hmmwv_v07_scaling_025g_seq_v1"
+    },
+    {
+      "version": "d010",
+      "slug": "v07_010g",
+      "notes": "v07 recipe on 10 GB uniform-stratified subset (1/30 of full train pool).",
+      "processed_dataset_dir": "artifacts/training_datasets/hmmwv_v07_scaling_010g_seq_v1"
+    },
+    {
+      "version": "d005",
+      "slug": "v07_005g",
+      "notes": "v07 recipe on 5 GB uniform-stratified subset (1/60 of full train pool).",
+      "processed_dataset_dir": "artifacts/training_datasets/hmmwv_v07_scaling_005g_seq_v1"
+    }
+  ]
+}

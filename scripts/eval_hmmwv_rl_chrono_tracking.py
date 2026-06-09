@@ -61,6 +61,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Optional Chrono solver step size. With default action_repeat=5 and dt=0.01, 0.01 gives 5 solver steps per policy update.",
     )
     parser.add_argument(
+        "--steering-rate-limit",
+        type=float,
+        default=None,
+        help="Clamp the steering command to within this offset of the previous policy step's steering.",
+    )
+    parser.add_argument(
         "--output-dir",
         type=Path,
         default=None,
@@ -277,6 +283,8 @@ def main(argv: list[str] | None = None) -> int:
     env_cfg["chrono_config"] = str(args.chrono_config)
     if args.chrono_step_size_s is not None:
         env_cfg["chrono_step_size_s"] = float(args.chrono_step_size_s)
+    if args.steering_rate_limit is not None:
+        env_cfg["steering_rate_limit"] = float(args.steering_rate_limit)
     if args.render:
         if args.reference_index is None:
             raise ValueError("--render renders a single rollout; pass --reference-index too.")

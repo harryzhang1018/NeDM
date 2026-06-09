@@ -2,6 +2,8 @@
 
 This workspace treats a local Project Chrono checkout as the simulator backend and adds a first data-collection pipeline for a single-vehicle overfit experiment on the HMMWV full model.
 
+Overall project status and milestone history are tracked in [docs/progress.md](docs/progress.md).
+
 The attached research note at [deep-research-report-vehicle.md](deep-research-report-vehicle.md) points toward hybrid or physics-guided models and multi-step validation. The code added here focuses on the prerequisite step: collecting clean, episode-level PyChrono data from deliberately excited HMMWV maneuvers on a fixed terrain.
 
 Start with [docs/data_collection_pipeline.md](docs/data_collection_pipeline.md), then run:
