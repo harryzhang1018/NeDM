@@ -53,3 +53,7 @@ Train the GPT-style sequence model:
 conda activate tutorial
 python scripts/train_hmmwv_dynamics.py --config configs/hmmwv_transformer_v1.json
 ```
+
+## RL Tracking
+
+Trajectory-tracking PPO against the frozen NN HMMWV dynamics model is documented in [docs/rl_tracking.md](docs/rl_tracking.md). The default setup uses the v07 dynamics checkpoint, 20 compact training-set references, and policy control every 5 NN steps.

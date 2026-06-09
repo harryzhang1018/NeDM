@@ -294,9 +294,11 @@ def create_hmmwv(config: dict[str, Any]) -> Any:
     hmmwv.SetInitPosition(
         chrono.ChCoordsysd(
             chrono.ChVector3d(init_cfg["x_m"], init_cfg["y_m"], init_cfg["z_m"]),
-            chrono.ChQuaterniond(1, 0, 0, 0),
+            chrono.QuatFromAngleZ(float(init_cfg.get("yaw_rad", 0.0))),
         )
     )
+    if "fwd_vel_mps" in init_cfg:
+        hmmwv.SetInitFwdVel(float(init_cfg["fwd_vel_mps"]))
     hmmwv.SetEngineType(ENGINE_MODELS[vehicle_cfg["engine_model"]])
     hmmwv.SetTransmissionType(TRANSMISSION_MODELS[vehicle_cfg["transmission_model"]])
     hmmwv.SetDriveType(DRIVE_TYPES[vehicle_cfg["drive_type"]])

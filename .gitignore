@@ -14,6 +14,10 @@ artifacts/*
 artifacts/datasets/
 artifacts/training_datasets/
 
+# RL outputs (policy checkpoints, eval rollouts, reference sets) stay local.
+artifacts/rl_runs/
+artifacts/rl_reference_sets/
+
 # Keep training metadata and best checkpoints, but skip bulky duplicate/runtime outputs.
 artifacts/training_runs/*_interrupted_*/
 artifacts/training_runs/**/*.tmux_session

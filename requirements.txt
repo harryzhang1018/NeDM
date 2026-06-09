@@ -8,3 +8,4 @@ torch==2.8.0
 torchvision==0.23.0
 tensorboard==2.20.0
 onnx==1.19.0
+rsl-rl-lib==2.2.4
