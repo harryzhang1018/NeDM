@@ -40,6 +40,8 @@ git lfs pull
 
 `environment.yml` is the recommended portable setup file. `environment.lock.yml` is a fuller no-build export of the current `tutorial` environment for closer reproduction on Linux.
 
+`environment.nedm.yml` is a second, separate environment (`nedm`) with pychrono 10.0.0 from the official `projectchrono` channel. It is used for Chrono-backed RL policy evaluation (`scripts/eval_hmmwv_rl_chrono_tracking.py` and the debug/overlay tools); training stays on the `tutorial` environment.
+
 Build the processed training cache from the episode CSVs:
 
 ```bash

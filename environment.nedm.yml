@@ -1,0 +1,23 @@
+# pychrono 10 evaluation environment (`nedm`).
+#
+# Used for Chrono-backed RL policy evaluation (scripts/eval_hmmwv_rl_chrono_tracking.py
+# and related debug/overlay tools) against pychrono 10.0.0 from the official
+# projectchrono channel. Training still uses the `tutorial` env (environment.yml),
+# which keeps pychrono 9.0.1; src/nedm/hmmwv_data.py works under both via the
+# SetVehicleDataPath compat shim.
+#
+#   conda env create -f environment.nedm.yml
+name: nedm
+channels:
+  - projectchrono
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - pychrono=10.0.0
+  - numpy=2.4.6
+  - pip:
+      - torch==2.12.0
+      - rsl-rl-lib==2.2.4
+      - matplotlib==3.10.9
