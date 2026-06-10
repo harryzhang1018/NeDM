@@ -357,6 +357,16 @@ def tire_field_names() -> list[str]:
                 f"{wheel_name}_moment_world_x_nm",
                 f"{wheel_name}_moment_world_y_nm",
                 f"{wheel_name}_moment_world_z_nm",
+                # Cross-terrain channels: derived from spindle state and the
+                # world-frame force only, so the same definitions remain
+                # computable on SCM (rigid tires) and CRM (FSI body forces).
+                f"{wheel_name}_force_wheel_fx_n",
+                f"{wheel_name}_force_wheel_fy_n",
+                f"{wheel_name}_force_wheel_fz_n",
+                f"{wheel_name}_spindle_omega_radps",
+                f"{wheel_name}_wheel_vx_mps",
+                f"{wheel_name}_slip_ratio",
+                f"{wheel_name}_deflection_m",
             ]
         )
     return fields
@@ -380,6 +390,7 @@ def capture_row(
     time_s: float,
     driver_inputs: Any,
     include_tires: bool,
+    tire_radii: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     vehicle = hmmwv.GetVehicle()
     body = hmmwv.GetChassis().GetBody()
@@ -440,6 +451,7 @@ def capture_row(
     }
 
     if include_tires:
+        world_up = chrono.ChVector3d(0, 0, 1)
         for wheel_name, axle_index, side in WHEEL_SPECS:
             tire = vehicle.GetTire(axle_index, side)
             tire_force = tire.ReportTireForce(terrain)
@@ -452,6 +464,26 @@ def capture_row(
             row[f"{wheel_name}_moment_world_x_nm"] = float(tire_force.moment.x)
             row[f"{wheel_name}_moment_world_y_nm"] = float(tire_force.moment.y)
             row[f"{wheel_name}_moment_world_z_nm"] = float(tire_force.moment.z)
+
+            # Wheel-aligned frame from spindle state only: x = heading
+            # (spin axis x world up), z = world up. On flat terrain this
+            # matches the TMEASY contact frame; on SCM/CRM it stays defined.
+            spin_axis = vehicle.GetSpindleRot(axle_index, side).GetAxisY()
+            heading = spin_axis.Cross(world_up).GetNormalized()
+            lateral = world_up.Cross(heading)
+            # Spin rate about the spin axis (positive = rolling forward).
+            # GetSpindleOmega uses the opposite sign convention; this projection
+            # is also what the CRM/FSI logging path uses.
+            omega = float(vehicle.GetSpindleAngVel(axle_index, side).Dot(spin_axis))
+            wheel_vx = float(vehicle.GetSpindleLinVel(axle_index, side).Dot(heading))
+            radius = tire_radii[wheel_name] if tire_radii else float(tire.GetRadius())
+            row[f"{wheel_name}_force_wheel_fx_n"] = float(tire_force.force.Dot(heading))
+            row[f"{wheel_name}_force_wheel_fy_n"] = float(tire_force.force.Dot(lateral))
+            row[f"{wheel_name}_force_wheel_fz_n"] = float(tire_force.force.Dot(world_up))
+            row[f"{wheel_name}_spindle_omega_radps"] = omega
+            row[f"{wheel_name}_wheel_vx_mps"] = wheel_vx
+            row[f"{wheel_name}_slip_ratio"] = (omega * radius - wheel_vx) / max(abs(wheel_vx), 0.1)
+            row[f"{wheel_name}_deflection_m"] = float(tire.GetDeflection())
 
     return row
 
@@ -480,6 +512,13 @@ def run_episode(
     driver = veh.ChDataDriver(hmmwv.GetVehicle(), driver_entries)
     driver.Initialize()
 
+    # Nominal radius captured before stepping (the fixed slip-ratio convention;
+    # TMEASY's live GetRadius drifts with load once the simulation runs).
+    tire_radii: dict[str, float] = {}
+    if include_tires:
+        for wheel_name, axle_index, side in WHEEL_SPECS:
+            tire_radii[wheel_name] = float(hmmwv.GetVehicle().GetTire(axle_index, side).GetRadius())
+
     next_record_time_s = float(scenario["warmup_s"])
     sample_index = 0
     row_count = 0
@@ -494,7 +533,13 @@ def run_episode(
             if time_s > duration_s + 1e-9:
                 break
 
+            # Synchronize before capturing so driver inputs, tire reports, and
+            # body states in a row all refer to the same instant (tire slip and
+            # forces are computed inside Synchronize from the state at time_s).
+            driver.Synchronize(time_s)
             driver_inputs = driver.GetInputs()
+            terrain.Synchronize(time_s)
+            hmmwv.Synchronize(time_s, driver_inputs, terrain)
 
             if time_s + 1e-9 >= next_record_time_s:
                 writer.writerow(
@@ -509,6 +554,7 @@ def run_episode(
                         time_s=time_s,
                         driver_inputs=driver_inputs,
                         include_tires=include_tires,
+                        tire_radii=tire_radii,
                     )
                 )
                 row_count += 1
@@ -517,10 +563,6 @@ def run_episode(
 
             if time_s >= duration_s:
                 break
-
-            driver.Synchronize(time_s)
-            terrain.Synchronize(time_s)
-            hmmwv.Synchronize(time_s, driver_inputs, terrain)
 
             driver.Advance(step_size_s)
             terrain.Advance(step_size_s)
@@ -537,6 +579,8 @@ def run_episode(
         "warmup_s": float(scenario["warmup_s"]),
         "driver_entry_count": len(build_time_grid(duration_s, driver_step_s)),
     }
+    if include_tires:
+        episode_meta["tire_nominal_radius_m"] = tire_radii
     with episode_meta_path.open("w", encoding="utf-8") as handle:
         json.dump(episode_meta, handle, indent=2)
 
