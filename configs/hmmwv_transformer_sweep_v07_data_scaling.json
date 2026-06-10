@@ -34,6 +34,8 @@
     "num_epochs": 80,
     "steps_per_epoch": 2000,
     "max_val_batches": 200,
+    "load_dataset_into_memory": true,
+    "pin_memory": false,
     "compile": false
   },
   "recipes": [

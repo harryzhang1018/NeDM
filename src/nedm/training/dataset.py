@@ -25,13 +25,15 @@ class WindowedHMMWVDataset(Dataset):
         sequence_length: int,
         max_windows: int | None = None,
         seed: int = 0,
+        load_into_memory: bool = False,
     ) -> None:
         self.processed_root = processed_root
         self.split = split
         self.sequence_length = int(sequence_length)
-        self.states = np.load(processed_root / f"{split}_states.npy", mmap_mode="r")
-        self.actions = np.load(processed_root / f"{split}_actions.npy", mmap_mode="r")
-        self.targets = np.load(processed_root / f"{split}_targets.npy", mmap_mode="r")
+        mmap_mode = None if load_into_memory else "r"
+        self.states = np.load(processed_root / f"{split}_states.npy", mmap_mode=mmap_mode)
+        self.actions = np.load(processed_root / f"{split}_actions.npy", mmap_mode=mmap_mode)
+        self.targets = np.load(processed_root / f"{split}_targets.npy", mmap_mode=mmap_mode)
         self.episode_starts = np.load(processed_root / f"{split}_episode_starts.npy")
         self.episode_lengths = np.load(processed_root / f"{split}_episode_lengths.npy")
         self.split_metadata = load_split_metadata(processed_root, split)
@@ -62,10 +64,14 @@ class WindowedHMMWVDataset(Dataset):
     def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
         start = self._window_start(index)
         stop = start + self.sequence_length
+        # torch.tensor copies into torch-owned storage. The previous
+        # from_numpy path attaches a custom deleter per tensor whose context
+        # was implicated in rare heap-corruption aborts (free(): invalid
+        # pointer in c10::deleteInefficientStdFunctionContext).
         return {
-            "states": torch.from_numpy(np.array(self.states[start:stop], copy=True)).float(),
-            "actions": torch.from_numpy(np.array(self.actions[start:stop], copy=True)).float(),
-            "targets": torch.from_numpy(np.array(self.targets[start:stop], copy=True)).float(),
+            "states": torch.tensor(self.states[start:stop], dtype=torch.float32),
+            "actions": torch.tensor(self.actions[start:stop], dtype=torch.float32),
+            "targets": torch.tensor(self.targets[start:stop], dtype=torch.float32),
         }
 
 

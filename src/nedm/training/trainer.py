@@ -146,6 +146,7 @@ class HMMWVTrainer:
         self.sequence_length = int(config["model"]["block_size"])
         self.device = resolve_device(training_cfg.get("device", "auto"))
         self.seed = int(training_cfg["seed"])
+        load_dataset_into_memory = bool(training_cfg.get("load_dataset_into_memory", False))
         seed_everything(self.seed)
 
         self.train_dataset = WindowedHMMWVDataset(
@@ -154,6 +155,7 @@ class HMMWVTrainer:
             sequence_length=self.sequence_length,
             max_windows=training_cfg.get("max_train_windows"),
             seed=self.seed,
+            load_into_memory=load_dataset_into_memory,
         )
         self.val_dataset = WindowedHMMWVDataset(
             self.processed_root,
@@ -161,13 +163,14 @@ class HMMWVTrainer:
             sequence_length=self.sequence_length,
             max_windows=training_cfg.get("max_val_windows"),
             seed=self.seed + 1,
+            load_into_memory=load_dataset_into_memory,
         )
 
         batch_size = int(training_cfg["batch_size"])
         self.num_epochs = int(training_cfg["num_epochs"])
         self.steps_per_epoch = int(training_cfg["steps_per_epoch"])
         num_workers = int(training_cfg.get("num_workers", 0))
-        pin_memory = self.device.type == "cuda"
+        pin_memory = bool(training_cfg.get("pin_memory", self.device.type == "cuda"))
         train_sampler = RandomSampler(
             self.train_dataset,
             replacement=True,
