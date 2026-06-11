@@ -6,7 +6,9 @@ Checks, over a sample of episode CSVs:
 2. every expected tire channel column is present
 3. no NaN/inf anywhere
 4. median summed wheel-frame Fz is within a band around the vehicle weight
-5. slip ratios are bounded (catches sign/radius convention regressions)
+5. slip ratios are bounded for wheels in ground contact (catches sign/radius
+   convention regressions; airborne wheels spin freely at near-zero hub speed,
+   so their slip ratio is unbounded and only reported, not checked)
 
 Usage:
     python scripts/validate_hmmwv_tire_dataset.py --dataset-dir <shard_dir>
@@ -28,6 +30,8 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 WHEEL_NAMES = ("tire_fl", "tire_fr", "tire_rl", "tire_rr")
 # HMMWV_Full as configured in this pipeline (measured: 2573.1 kg)
 DEFAULT_WEIGHT_N = 25242.0
+# below this normal force the wheel is (nearly) airborne and slip is undefined
+CONTACT_FZ_N = 50.0
 
 
 def parse_args() -> argparse.Namespace:
@@ -70,6 +74,7 @@ def main() -> int:
 
     total_fz_medians = []
     slip_extreme = 0.0
+    airborne_slip_extreme = 0.0
     rows_checked = 0
     for path in sampled:
         with path.open(newline="", encoding="utf-8") as handle:
@@ -87,7 +92,12 @@ def main() -> int:
                         failures.append(f"{path.name}: non-finite {key} at sample {row['sample_index']}")
                         break
                 fz_sums.append(sum(float(row[c]) for c in fz_cols))
-                slip_extreme = max(slip_extreme, max(abs(float(row[c])) for c in slip_cols))
+                for fz_col, slip_col in zip(fz_cols, slip_cols):
+                    slip = abs(float(row[slip_col]))
+                    if float(row[fz_col]) > CONTACT_FZ_N:
+                        slip_extreme = max(slip_extreme, slip)
+                    else:
+                        airborne_slip_extreme = max(airborne_slip_extreme, slip)
             if fz_sums:
                 fz_sums.sort()
                 total_fz_medians.append(fz_sums[len(fz_sums) // 2])
@@ -97,11 +107,11 @@ def main() -> int:
         ratio = med / args.weight_n
         print(f"checked {rows_checked} rows across {len(sampled)} episodes")
         print(f"median episode-median sum Fz: {med:.0f} N vs weight {args.weight_n:.0f} N (ratio {ratio:.3f})")
-        print(f"max |slip ratio| seen: {slip_extreme:.2f}")
+        print(f"max |slip ratio| in contact: {slip_extreme:.2f} (airborne, unchecked: {airborne_slip_extreme:.2f})")
         if not 0.85 <= ratio <= 1.15:
             failures.append(f"sum-Fz/weight ratio {ratio:.3f} outside [0.85, 1.15]")
         if slip_extreme > 50:
-            failures.append(f"absurd slip ratio {slip_extreme:.1f} (sign/radius convention regression?)")
+            failures.append(f"absurd in-contact slip ratio {slip_extreme:.1f} (sign/radius convention regression?)")
     elif not failures:
         failures.append("no rows checked")
 
