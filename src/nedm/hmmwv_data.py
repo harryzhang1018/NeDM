@@ -140,8 +140,12 @@ def validate_config(config: dict[str, Any]) -> None:
         raise ValueError("simulation.driver_sample_step_s must be positive")
     if not 0.0 <= simulation["validation_ratio"] < 1.0:
         raise ValueError("simulation.validation_ratio must be in [0, 1)")
-    if config["terrain"]["type"] != "rigid":
-        raise ValueError("Only rigid terrain is supported in the first pipeline")
+    if config["terrain"]["type"] not in ("rigid", "rigid_heightmap"):
+        raise ValueError("terrain.type must be 'rigid' or 'rigid_heightmap'")
+    if config["terrain"]["type"] == "rigid_heightmap":
+        for key in ("height_map_dir", "height_map_count", "height_min_m", "height_max_m"):
+            if key not in config["terrain"]:
+                raise ValueError(f"rigid_heightmap terrain requires terrain.{key}")
     if not config.get("scenarios") and "scenario_generator" not in config:
         raise ValueError("Config must define either scenarios or scenario_generator")
     if "scenario_generator" in config:
@@ -319,7 +323,30 @@ def create_hmmwv(config: dict[str, Any]) -> Any:
     return hmmwv
 
 
-def create_rigid_terrain(system: Any, config: dict[str, Any]) -> Any:
+def assign_height_map_index(episode_id: str, count: int) -> int:
+    """Deterministic, uniform terrain pick per episode (salted so it does not
+    correlate with the split assignment hash)."""
+    digest = hashlib.md5(f"terrain::{episode_id}".encode("utf-8")).hexdigest()
+    return int(digest, 16) % count
+
+
+def resolve_height_map(config: dict[str, Any], episode_id: str) -> tuple[int, Path] | None:
+    """Return (index, bmp path) for heightmap terrain, or None for flat terrain."""
+    terrain_cfg = config["terrain"]
+    if terrain_cfg.get("type", "rigid") != "rigid_heightmap":
+        return None
+    count = int(terrain_cfg["height_map_count"])
+    index = assign_height_map_index(episode_id, count)
+    height_map_dir = resolve_project_path(repo_root_from_module(), terrain_cfg["height_map_dir"])
+    path = height_map_dir / (terrain_cfg.get("height_map_pattern", "bumpy_field_%03d.bmp") % index)
+    if not path.is_file():
+        raise FileNotFoundError(f"height map not found: {path}")
+    return index, path
+
+
+def create_rigid_terrain(
+    system: Any, config: dict[str, Any], height_map_path: Path | None = None
+) -> Any:
     terrain_cfg = config["terrain"]
     terrain = veh.RigidTerrain(system)
 
@@ -333,12 +360,28 @@ def create_rigid_terrain(system: Any, config: dict[str, Any]) -> Any:
         patch_mat.SetRestitution(terrain_cfg["restitution"])
         patch_mat.SetYoungModulus(terrain_cfg["young_modulus_pa"])
 
-    terrain.AddPatch(
-        patch_mat,
-        chrono.CSYSNORM,
-        float(terrain_cfg["length_m"]),
-        float(terrain_cfg["width_m"]),
-    )
+    terrain_type = terrain_cfg.get("type", "rigid")
+    if terrain_type == "rigid":
+        terrain.AddPatch(
+            patch_mat,
+            chrono.CSYSNORM,
+            float(terrain_cfg["length_m"]),
+            float(terrain_cfg["width_m"]),
+        )
+    elif terrain_type == "rigid_heightmap":
+        if height_map_path is None:
+            raise ValueError("rigid_heightmap terrain requires a height_map_path")
+        terrain.AddPatch(
+            patch_mat,
+            chrono.CSYSNORM,
+            str(height_map_path),
+            float(terrain_cfg["length_m"]),
+            float(terrain_cfg["width_m"]),
+            float(terrain_cfg["height_min_m"]),
+            float(terrain_cfg["height_max_m"]),
+        )
+    else:
+        raise ValueError(f"unsupported terrain type: {terrain_type}")
     terrain.Initialize()
     return terrain
 
@@ -506,11 +549,23 @@ def run_episode(
     episode_csv_path = output_root / "episodes" / f"{episode_id}.csv"
     episode_meta_path = output_root / "episodes" / f"{episode_id}.json"
 
+    height_map = resolve_height_map(config, episode_id)
     hmmwv = create_hmmwv(config)
-    terrain = create_rigid_terrain(hmmwv.GetSystem(), config)
+    terrain = create_rigid_terrain(
+        hmmwv.GetSystem(), config, height_map_path=height_map[1] if height_map else None
+    )
     driver_entries = build_driver_entries(scenario, driver_step_s)
     driver = veh.ChDataDriver(hmmwv.GetVehicle(), driver_entries)
     driver.Initialize()
+
+    # Truncate episodes that approach the patch border (heightmap patches are
+    # finite; beyond the edge the wheels would fall off the terrain mesh).
+    terrain_cfg = config["terrain"]
+    keep_fraction = float(terrain_cfg.get("keep_within_fraction", 0.9))
+    bound_x = 0.5 * float(terrain_cfg["length_m"]) * keep_fraction
+    bound_y = 0.5 * float(terrain_cfg["width_m"]) * keep_fraction
+    enforce_bounds = terrain_cfg.get("type", "rigid") == "rigid_heightmap"
+    out_of_bounds = False
 
     # Nominal radius captured before stepping (the fixed slip-ratio convention;
     # TMEASY's live GetRadius drifts with load once the simulation runs).
@@ -532,6 +587,12 @@ def run_episode(
             time_s = float(hmmwv.GetSystem().GetChTime())
             if time_s > duration_s + 1e-9:
                 break
+
+            if enforce_bounds:
+                pos = hmmwv.GetChassis().GetBody().GetFrameRefToAbs().GetPos()
+                if abs(pos.x) > bound_x or abs(pos.y) > bound_y:
+                    out_of_bounds = True
+                    break
 
             # Synchronize before capturing so driver inputs, tire reports, and
             # body states in a row all refer to the same instant (tire slip and
@@ -581,6 +642,12 @@ def run_episode(
     }
     if include_tires:
         episode_meta["tire_nominal_radius_m"] = tire_radii
+    if height_map is not None:
+        episode_meta["height_map_index"] = height_map[0]
+        episode_meta["height_map"] = height_map[1].name
+        episode_meta["terminated_out_of_bounds"] = out_of_bounds
+        if out_of_bounds:
+            episode_meta["truncated_duration_s"] = float(hmmwv.GetSystem().GetChTime())
     with episode_meta_path.open("w", encoding="utf-8") as handle:
         json.dump(episode_meta, handle, indent=2)
 

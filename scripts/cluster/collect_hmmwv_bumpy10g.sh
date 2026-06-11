@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=hmmwv-tire10g
+#SBATCH --job-name=hmmwv-bumpy10g
 #SBATCH --output=logs/out_%A_%a.txt
 #SBATCH --error=logs/err_%A_%a.txt
 #SBATCH --cpus-per-task=32
@@ -7,11 +7,12 @@
 #SBATCH --partition=sbel
 #SBATCH --time=02:00:00
 
-# Collects the 10 GB rigid-terrain HMMWV tire-force dataset (4 shards x 256
-# episodes). Two ways to run:
+# Collects the 10 GB bumpy-terrain HMMWV tire-force dataset (4 shards x 340
+# episodes on rigid heightmap patches from assets/bumpy_terrain, ~10 GB after
+# patch-border truncation). Two ways to run:
 #
-#   sbatch scripts/cluster/collect_hmmwv_tire10g.sh                 # one job, all 4 shards in sequence
-#   sbatch --array=0-3 scripts/cluster/collect_hmmwv_tire10g.sh    # one shard per array task
+#   sbatch scripts/cluster/collect_hmmwv_bumpy10g.sh                # one job, all 4 shards in sequence
+#   sbatch --array=0-3 scripts/cluster/collect_hmmwv_bumpy10g.sh   # one shard per array task
 #
 # Before first submit:  mkdir -p logs   (slurm won't create the output dir)
 # Shards already completed (dataset_index.json present) are skipped, so the
@@ -25,14 +26,19 @@ conda activate nedm
 
 cd /srv/home/hzhang699/NeDM
 
+if [[ ! -f assets/bumpy_terrain/bumpy_field_000.bmp ]]; then
+  echo "ERROR: assets/bumpy_terrain/ height-map library missing (it is in git; pull?)" >&2
+  exit 1
+fi
+
 # chrono data ships with the pychrono conda package; the chrono source
 # checkout is not needed on the cluster
 CHRONO_DATA_ROOT="$CONDA_PREFIX/share/chrono/data"
-PLAN_DIR="artifacts/datasets/hmmwv_tire_rigid_10g_plan"
+PLAN_DIR="artifacts/datasets/hmmwv_bumpy_10g_plan"
 JOBS="${SLURM_CPUS_PER_TASK:-16}"
 
 # idempotent; writes shard configs pointing at this machine's chrono data
-python scripts/prepare_hmmwv_tire10g_generation.py --chrono-data-root "$CHRONO_DATA_ROOT"
+python scripts/prepare_hmmwv_bumpy10g_generation.py --chrono-data-root "$CHRONO_DATA_ROOT"
 
 if [[ -n "${SLURM_ARRAY_TASK_ID:-}" ]]; then
   shards=("$SLURM_ARRAY_TASK_ID")
