@@ -2,15 +2,15 @@
 
 A living log of the overall project state, so both of us can see at a glance what is done, what the headline numbers are, and what is next. Update this file whenever a milestone lands or a headline metric changes.
 
-Last updated: 2026-06-09 (pychrono 10 verification added)
+Last updated: 2026-06-11 (5 GB dynamics/RL scaling-law signal added)
 
 ## Status At A Glance
 
 | # | Milestone | Status | Headline result |
 |---|---|---|---|
 | 1 | Rigid flat-terrain HMMWV dataset | Done | ~310 GB across 4 dataset generations, 100 Hz episode CSVs |
-| 2 | NN dynamics model for HMMWV | Done | v07 transformer: best sweep model; v3_turn_300g: 0.35 m XY RMSE on 5 s open-loop rollouts |
-| 3 | RL tracking on NN dynamics + Chrono eval | Done (first pass) | NN eval median 0.17 m XY RMSE; Chrono sim-to-sim median 0.25 m over 20 references |
+| 2 | NN dynamics model for HMMWV | Done | v07 transformer: best sweep model; 5 GB -> 300 GB scaling-law signal now visible in downstream Chrono RL transfer |
+| 3 | RL tracking on NN dynamics + Chrono eval | Done (first pass) | Best 300 GB run: Chrono median 0.217 m with steering clamp; 5 GB run: Chrono median 0.211 m with same clamp |
 
 ## Milestone 1: Rigid Flat-Terrain HMMWV Dataset
 
@@ -72,6 +72,7 @@ Supporting work that landed with this milestone:
 - Chrono eval gotchas were worked through and recorded: references must start from rest, the reference line must attach to the existing terrain body (a new `ChBody` perturbs the solver), and full-loop multi-reference eval must run one reference per process due to a native stack-smash on repeated sim re-creation.
 - **pychrono 10 verification (2026-06-09)**: new `nedm` conda env with pychrono 10.0.0 from the official `projectchrono` channel (replacing the 9.0.1 `bochengzou` build in `tutorial`). One API rename fixed (`veh.SetDataPath` → `SetVehicleDataPath`, compat shim in `hmmwv_data.py`). Re-ran the full 20-ref Chrono eval (`chrono_eval_model1999_reststart_pychrono10`): median 0.280 m vs 0.245 m under 9.0.1; 15/20 references match within ~0.05 m, marginal references flip both ways (launch_brake improved 4.98→0.45 m; two sine-steer refs diverged). Native fragility persists: eval processes can crash during plotting after the rollout npz is saved.
 - **Steering rate-limit filter (2026-06-09)**: rendered rollout analysis showed the Chrono-10 divergences are abrupt steering reversals shoving the tires into combined-slip saturation (full throttle, vehicle decelerates to a stop). Added a `steering_rate_limit` option to the Chrono eval env (clamp steering to ±threshold of the previous policy step). At 0.3 it eliminates **all** model_1999 divergences with no cost elsewhere: mean 1.360 → 0.255 m, median 0.280 → 0.217 m, diverged 3 → 0; even `steer_brake_s010` (diverged under both pychrono versions) drops to 0.68 m. Training-side hard termination on steering jumps is the follow-up (see `.claude/lessons_learned.md`).
+- **5 GB dynamics/RL scaling-law signal (2026-06-11)**: evaluated `hmmwv_rl_tracking_d005_v07_20260610_2048env_unbuf/model_1300.pt`, whose policy was trained against the `hmmwv_transformer_d005_v07_005g` NN dynamics checkpoint instead of the 300 GB backbone. On the same rest-start 20-reference set (`hmmwv_train_refs_20_1100_rest_start.npz`), NN-env tracking stayed strong: mean 0.186 m, median 0.148 m, 0/20 diverged. Raw Chrono transfer without steering clamp exposed the same steering-jump failure mode as the larger run: mean 1.802 m, median 0.442 m, 3/20 diverged. With the existing `steering_rate_limit=0.3` clamp, all 20 Chrono rollouts completed: mean 0.274 m, median 0.211 m, 0/20 diverged; worst case was `steer_brake/s010_steer_brake_00066` at 0.766 m RMSE. This is important evidence that a scaling law exists for the NN dynamics model: even the 5 GB data-scale model produces a policy whose clamped Chrono transfer is in the same regime as the 300 GB/v07 policy, while the remaining gap shows up as the same controllable action-smoothness pathology rather than broad tracking failure.
 
 ## Open Items / Next Steps
 

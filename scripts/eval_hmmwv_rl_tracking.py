@@ -66,6 +66,17 @@ def tensor_to_numpy(tensor: torch.Tensor) -> np.ndarray:
     return tensor.detach().cpu().numpy().copy()
 
 
+def load_runner_checkpoint(runner: OnPolicyRunner, checkpoint_path: Path, device: str) -> None:
+    loaded_dict = torch.load(checkpoint_path, map_location=torch.device(device), weights_only=False)
+    runner.alg.actor_critic.load_state_dict(loaded_dict["model_state_dict"])
+    if runner.alg.rnd:
+        runner.alg.rnd.load_state_dict(loaded_dict["rnd_state_dict"])
+    if runner.empirical_normalization:
+        runner.obs_normalizer.load_state_dict(loaded_dict["obs_norm_state_dict"])
+        runner.critic_obs_normalizer.load_state_dict(loaded_dict["critic_obs_norm_state_dict"])
+    runner.current_learning_iteration = int(loaded_dict["iter"])
+
+
 def rollout_policy(
     env: HMMWVNeuralTrackingEnv,
     policy,
@@ -214,7 +225,7 @@ def main(argv: list[str] | None = None) -> int:
     env = HMMWVNeuralTrackingEnv(env_cfg, device=device)
 
     runner = OnPolicyRunner(env, train_cfg, log_dir=None, device=device)
-    runner.load(str(checkpoint_path), load_optimizer=False)
+    load_runner_checkpoint(runner, checkpoint_path, device=device)
     policy = runner.get_inference_policy(device=device)
     max_steps = int(args.max_steps) if args.max_steps is not None else int(env.max_episode_length)
     records = rollout_policy(env, policy, max_steps=max_steps)

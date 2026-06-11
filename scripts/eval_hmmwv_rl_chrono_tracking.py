@@ -72,6 +72,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Directory for plots and summary. Defaults under run-dir/chrono_eval_tracking.",
     )
+    parser.add_argument("--no-plots", action="store_true", help="Skip PNG plot generation.")
     parser.add_argument(
         "--render",
         action="store_true",
@@ -331,7 +332,8 @@ def main(argv: list[str] | None = None) -> int:
         metrics["reference"] = env.reference_names()[reference_id]
         summary.append(metrics)
         np.savez_compressed(output_dir / f"chrono_tracking_{reference_id:02d}.npz", **record)
-        plot_record(record, env, reference_id, output_dir / f"chrono_tracking_{reference_id:02d}.png")
+        if not args.no_plots:
+            plot_record(record, env, reference_id, output_dir / f"chrono_tracking_{reference_id:02d}.png")
         print(json.dumps(metrics))
 
     valid_xy = [row["xy_rmse_m"] for row in summary if "xy_rmse_m" in row]
@@ -339,6 +341,9 @@ def main(argv: list[str] | None = None) -> int:
         "backend": "chrono_hmmwv",
         "policy_checkpoint": str(checkpoint_path),
         "chrono_config": str(args.chrono_config),
+        "steering_rate_limit": (
+            float(args.steering_rate_limit) if args.steering_rate_limit is not None else None
+        ),
         "num_rollouts": len(summary),
         "mean_xy_rmse_m": float(np.mean(valid_xy)) if valid_xy else None,
         "median_xy_rmse_m": float(np.median(valid_xy)) if valid_xy else None,
