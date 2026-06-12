@@ -2,7 +2,7 @@
 
 A living log of the overall project state, so both of us can see at a glance what is done, what the headline numbers are, and what is next. Update this file whenever a milestone lands or a headline metric changes.
 
-Last updated: 2026-06-11 (5 GB dynamics/RL scaling-law signal added)
+Last updated: 2026-06-11 (bumpy-terrain Chrono eval of the flat-trained policy)
 
 ## Status At A Glance
 
@@ -74,10 +74,22 @@ Supporting work that landed with this milestone:
 - **Steering rate-limit filter (2026-06-09)**: rendered rollout analysis showed the Chrono-10 divergences are abrupt steering reversals shoving the tires into combined-slip saturation (full throttle, vehicle decelerates to a stop). Added a `steering_rate_limit` option to the Chrono eval env (clamp steering to ±threshold of the previous policy step). At 0.3 it eliminates **all** model_1999 divergences with no cost elsewhere: mean 1.360 → 0.255 m, median 0.280 → 0.217 m, diverged 3 → 0; even `steer_brake_s010` (diverged under both pychrono versions) drops to 0.68 m. Training-side hard termination on steering jumps is the follow-up (see `.claude/lessons_learned.md`).
 - **5 GB dynamics/RL scaling-law signal (2026-06-11)**: evaluated `hmmwv_rl_tracking_d005_v07_20260610_2048env_unbuf/model_1300.pt`, whose policy was trained against the `hmmwv_transformer_d005_v07_005g` NN dynamics checkpoint instead of the 300 GB backbone. On the same rest-start 20-reference set (`hmmwv_train_refs_20_1100_rest_start.npz`), NN-env tracking stayed strong: mean 0.186 m, median 0.148 m, 0/20 diverged. Raw Chrono transfer without steering clamp exposed the same steering-jump failure mode as the larger run: mean 1.802 m, median 0.442 m, 3/20 diverged. With the existing `steering_rate_limit=0.3` clamp, all 20 Chrono rollouts completed: mean 0.274 m, median 0.211 m, 0/20 diverged; worst case was `steer_brake/s010_steer_brake_00066` at 0.766 m RMSE. This is important evidence that a scaling law exists for the NN dynamics model: even the 5 GB data-scale model produces a policy whose clamped Chrono transfer is in the same regime as the 300 GB/v07 policy, while the remaining gap shows up as the same controllable action-smoothness pathology rather than broad tracking failure.
 
+## Bumpy-Terrain Transfer (2026-06-11)
+
+First out-of-regime test: take the **flat-terrain-trained** `model_1999` policy and evaluate it in Chrono on **bumpy rigid-heightmap terrain** (the same `bumpy_field_*.bmp` library the 10 GB bumpy dataset was collected on, 500×500 m patches, height ±0.6 m). The Chrono env now reproduces the exact per-episode terrain: each reference's heightmap is recovered deterministically from its `episode_id` via `assign_height_map_index` (verified to match every stored `height_map_index`), and `HMMWVChronoTrackingEnv._create_sim` passes it to `create_rigid_terrain`. Setup: bumpy reference set `hmmwv_bumpy_refs_20_1100_rest_start.npz` (rest-start; 6 families — bumpy data has no launch_brake/step_steer/aggressive_*), eval config `configs/hmmwv_bumpy_eval.json`, `steering_rate_limit=0.3`, 20 m bound. See the `run-bumpy-terrain-eval` skill for the full recipe.
+
+| Eval backend / terrain | Median XY RMSE | Mean XY RMSE | Diverged |
+|---|---:|---:|---:|
+| Chrono, flat terrain (smooth refs) | 0.217 m | 0.255 m | 0 / 20 |
+| **Chrono, bumpy terrain (bumpy refs)** | **0.345 m** | **1.46 m** | **4 / 20** |
+
+The flat-trained policy **does not transfer well to bumpy terrain**: mean RMSE jumps 0.26 → 1.46 m and 4/20 references diverge to the 20 m bound (refs 1 sine, 3 multi, 14 doublet, 16 chirp — all high-speed, high-travel steering maneuvers where the bumps perturb the tires most). Slow/braking refs (sustained_turn, steer_brake) still track within ~0.2–0.5 m. This is expected: both the frozen v07 NN dynamics model and the PPO policy only ever saw flat-terrain tire dynamics, so bump-induced load transfer and tire-force variation are out of distribution. **Closing this gap requires finetuning both the NN dynamics model and the policy on the bumpy dataset** — the eval harness for measuring that is now in place.
+
 ## Open Items / Next Steps
 
 - **Braking transfer gap**: the policy tracks turning references in Chrono but diverges on braking-heavy ones — likely a dynamics-model gap (brake response) rather than a policy gap; worth checking v07 open-loop rollout error on launch_brake/steer_brake segments specifically.
 - **v19–v30 sweep** crashed at the first model and was never completed.
 - **RL on the v3_turn_300g model**: the RL backbone is still v07 (trained on 6k+2k); the 300g-trained model has much better open-loop rollouts and is untested as an RL backbone.
 - **Held-out references**: RL eval currently uses training-set segments; no held-out-trajectory evaluation yet.
-- **Beyond the fixed regime**: terrain/friction variation, observation noise, and tire-channel supervision are all still deliberately out of scope.
+- **Bumpy-terrain finetune (next major step)**: the flat-trained policy regresses badly on bumpy terrain (mean 0.26 → 1.46 m, 4/20 diverge — see Bumpy-Terrain Transfer above). Plan: (1) finetune the v07 NN dynamics model on the `hmmwv_bumpy_10g_seq_v1` processed cache so it captures bump-induced load/tire dynamics, then (2) finetune/retrain the PPO policy against that bumpy dynamics model, and (3) re-run the bumpy Chrono eval (`run-bumpy-terrain-eval` skill) to measure recovery. The eval harness, reference set, and per-episode terrain reproduction are all done.
+- **Beyond the fixed regime**: bumpy-terrain *evaluation* now exists (heightmap terrain reproduced per episode); friction variation, observation noise, and tire-channel supervision are still out of scope.

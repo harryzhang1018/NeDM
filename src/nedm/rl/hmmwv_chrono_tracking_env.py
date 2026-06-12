@@ -20,6 +20,7 @@ from nedm.hmmwv_data import (
     create_rigid_terrain,
     load_config,
     repo_root_from_module,
+    resolve_height_map,
     resolve_project_path,
 )
 from nedm.rl.hmmwv_tracking_env import default_env_cfg, merge_env_cfg, wrap_angle
@@ -310,7 +311,17 @@ class HMMWVChronoTrackingEnv(VecEnv):
         init_cfg["fwd_vel_mps"] = max(0.0, float(ref_state[self.state_index["vel_body_x_mps"]]))
 
         hmmwv = create_hmmwv(config)
-        terrain = create_rigid_terrain(hmmwv.GetSystem(), config)
+        # rigid_heightmap terrain is per-episode: each reference was collected on the
+        # bumpy field deterministically assigned to its episode_id. Reproduce that exact
+        # terrain so the eval drives over the same bumps. resolve_height_map returns None
+        # for flat 'rigid' terrain, which leaves the previous flat behaviour unchanged.
+        episode_id = self.reference_set.episode_ids[reference_id]
+        height_map = resolve_height_map(config, episode_id)
+        terrain = create_rigid_terrain(
+            hmmwv.GetSystem(),
+            config,
+            height_map_path=height_map[1] if height_map is not None else None,
+        )
         driver_inputs = veh.DriverInputs()
         driver_inputs.m_steering = float(ref_action[0])
         driver_inputs.m_throttle = float(ref_action[1])
