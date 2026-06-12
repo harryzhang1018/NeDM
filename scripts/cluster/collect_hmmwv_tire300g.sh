@@ -4,15 +4,15 @@
 #SBATCH --error=logs/err_%A_%a.txt
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=30G
-#SBATCH --partition=sbel
+#SBATCH --partition=research
 #SBATCH --time=02:00:00
 
 # Collects the 300 GB rigid-terrain HMMWV tire-force dataset: 128 shards x
 # 256 episodes (~2.4 GB per shard, ~307 GB total -> check your disk quota
 # before launching). Intended usage is one shard per array task:
 #
-#   sbatch --array=0-127 scripts/cluster/collect_hmmwv_tire300g.sh        # as parallel as the partition allows
-#   sbatch --array=0-127%16 scripts/cluster/collect_hmmwv_tire300g.sh    # at most 16 shards at a time
+#   sbatch --array=0-127%16 scripts/cluster/collect_hmmwv_tire300g.sh    # 16 shards (512 cpus) at a time, ~4 h total
+#   sbatch --array=0-127%32 scripts/cluster/collect_hmmwv_tire300g.sh    # 32 shards (1024 cpus) at a time, ~2 h total
 #
 # A shard takes roughly 30 min on 32 cpus, so the 02:00:00 walltime has wide
 # margin per array task. Running without --array loops over all 128 shards
