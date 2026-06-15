@@ -281,7 +281,7 @@ class HMMWVNeuralTrackingEnv(VecEnv):
 
     def _nn_substep(self, driver_actions: torch.Tensor) -> None:
         self.action_hist[:, -1, :] = driver_actions
-        delta = self.model.predict_delta(self.state_hist, self.action_hist)[:, -1, :]
+        delta = self.model.predict_next_delta(self.state_hist, self.action_hist)
         next_state = self.state_hist[:, -1, :] + delta
         self.pose = self._integrate_pose(self.pose, next_state)
 
