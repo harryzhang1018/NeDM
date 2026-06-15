@@ -1,0 +1,4 @@
+interface:
+  display_name: "HMMWV NN Eval"
+  short_description: "Build filtered rest-start RL eval references"
+  default_prompt: "Use $hmmwv-nn-eval to build filtered rest-start HMMWV NN tracking references and rerun policy eval."
