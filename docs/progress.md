@@ -2,15 +2,15 @@
 
 A living log of the overall project state, so both of us can see at a glance what is done, what the headline numbers are, and what is next. Update this file whenever a milestone lands or a headline metric changes.
 
-Last updated: 2026-06-11 (bumpy-terrain Chrono eval of the flat-trained policy)
+Last updated: 2026-06-15 (15-D tire-normal-force/omega dynamics model, RL policy, NN + Chrono eval)
 
 ## Status At A Glance
 
 | # | Milestone | Status | Headline result |
 |---|---|---|---|
 | 1 | Rigid flat-terrain HMMWV dataset | Done | ~310 GB across 4 dataset generations, 100 Hz episode CSVs |
-| 2 | NN dynamics model for HMMWV | Done | v07 transformer: best sweep model; 5 GB -> 300 GB scaling-law signal now visible in downstream Chrono RL transfer |
-| 3 | RL tracking on NN dynamics + Chrono eval | Done (first pass) | Best 300 GB run: Chrono median 0.217 m with steering clamp; 5 GB run: Chrono median 0.211 m with same clamp |
+| 2 | NN dynamics model for HMMWV | Done | Upgraded from 7-D state to 15-D tire-normal-force/omega state; current RL backbone is `hmmwv_transformer_v07_tire_normal_force_omega_300g` |
+| 3 | RL tracking on NN dynamics + Chrono eval | Done (first pass) | 15-D policy `hmmwv_rl_15d_5090_2048env_tmux/model_300.pt`: NN and Chrono eval both run on train refs and filtered rest-start validation refs |
 
 ## Milestone 1: Rigid Flat-Terrain HMMWV Dataset
 
@@ -33,17 +33,38 @@ Processed sequence caches (in `artifacts/training_datasets/`):
 
 ## Milestone 2: NN Dynamics Model
 
-GPT-style causal transformer over continuous tokens at 100 Hz: input is a context window of 10-d state+action tokens (7 state fields: body velocities, roll, pitch, roll rate, pitch rate, yaw rate; 3 controls: steering, throttle, braking), output is the 7-d next-step state delta. Position and yaw are reconstructed by integration during rollout. Pipeline documented in [hmmwv_training_pipeline.md](hmmwv_training_pipeline.md); checkpoints in Git LFS per [model_checkpoints.md](model_checkpoints.md).
+GPT-style causal transformer over continuous tokens at 100 Hz. The original HMMWV dynamics stack used 10-d state+action tokens (7 state fields plus 3 controls) and predicted the 7-d next-step state delta. The current RL backbone is the upgraded 15-state tire-normal-force/omega model described below. In both versions, position and yaw are reconstructed by integration during rollout. Pipeline documented in [hmmwv_training_pipeline.md](hmmwv_training_pipeline.md); checkpoints in Git LFS per [model_checkpoints.md](model_checkpoints.md).
 
 Training history:
 
 - **v1 / v2_block64** (2026-04) — first models on `hmmwv_overfit_6k_seq_v1`, established the pipeline and rollout-RMSE validation protocol.
 - **v04–v18 architecture sweep** (completed 2026-05-26) — 12 recipes, 80 epochs each, on the full 329 M-transition `hmmwv_turn_300g_plus_base_seq_v1` cache (≈300 GB raw pool). Ranked by median XY RMSE over a fixed set of 20 full validation rollouts:
-  - **v07 `context128_b64`** won on median XY RMSE (5.96 m) — the default RL dynamics backbone.
+  - **v07 `context128_b64`** won on median XY RMSE (5.96 m) — the legacy 7-state RL dynamics backbone before the 15-D upgrade.
   - **v04 `long_baseline_b32`** had the best mean/max robustness (mean 15.1 m) — the short-context fallback.
   - Lowest one-step val loss (v18, v12) did **not** give the best rollouts — long-horizon rollout error is the metric that matters.
 - **v3_turn_300g** (2026-05-25) — v3 architecture on the 329 M-transition turn cache, ~20 epochs. Best val loss 0.0477; open-loop rollout XY RMSE 0.002 m @ 1 s, 0.014 m @ 2 s, 0.346 m @ 5 s.
 - **v19–v30 focused sweep** — started 2026-05-26, crashed on the first model (training subprocess died with signal 6); never re-run. Open item.
+
+### 15-D Tire-Normal-Force/Omega Upgrade (2026-06-15)
+
+The current RL backbone has been upgraded from the earlier 7-state dynamics model to a 15-state model that includes tire vertical normal forces and wheel spindle angular velocities:
+
+```text
+artifacts/training_runs/hmmwv_transformer_v07_tire_normal_force_omega_300g/checkpoints/best_val.pth
+```
+
+State fields are:
+
+```text
+vel_body_x_mps, vel_body_y_mps, roll_rad, pitch_rad,
+roll_rate_radps, ang_vel_body_y_radps, yaw_rate_radps,
+tire_fl_force_wheel_fz_n, tire_fr_force_wheel_fz_n,
+tire_rl_force_wheel_fz_n, tire_rr_force_wheel_fz_n,
+tire_fl_spindle_omega_radps, tire_fr_spindle_omega_radps,
+tire_rl_spindle_omega_radps, tire_rr_spindle_omega_radps
+```
+
+Actions remain the 3 driver channels: steering, throttle, braking. The model uses a 128-step context at 100 Hz (`dt_s = 0.01`). The matching RL reference sets are the `hmmwv_tire_normal_force_omega_*` compact `.npz` files under `artifacts/rl_reference_sets/`.
 
 ## Milestone 3: RL Tracking (NN Dynamics Training, NN + Chrono Eval)
 
@@ -74,6 +95,43 @@ Supporting work that landed with this milestone:
 - **Steering rate-limit filter (2026-06-09)**: rendered rollout analysis showed the Chrono-10 divergences are abrupt steering reversals shoving the tires into combined-slip saturation (full throttle, vehicle decelerates to a stop). Added a `steering_rate_limit` option to the Chrono eval env (clamp steering to ±threshold of the previous policy step). At 0.3 it eliminates **all** model_1999 divergences with no cost elsewhere: mean 1.360 → 0.255 m, median 0.280 → 0.217 m, diverged 3 → 0; even `steer_brake_s010` (diverged under both pychrono versions) drops to 0.68 m. Training-side hard termination on steering jumps is the follow-up (see `.claude/lessons_learned.md`).
 - **5 GB dynamics/RL scaling-law signal (2026-06-11)**: evaluated `hmmwv_rl_tracking_d005_v07_20260610_2048env_unbuf/model_1300.pt`, whose policy was trained against the `hmmwv_transformer_d005_v07_005g` NN dynamics checkpoint instead of the 300 GB backbone. On the same rest-start 20-reference set (`hmmwv_train_refs_20_1100_rest_start.npz`), NN-env tracking stayed strong: mean 0.186 m, median 0.148 m, 0/20 diverged. Raw Chrono transfer without steering clamp exposed the same steering-jump failure mode as the larger run: mean 1.802 m, median 0.442 m, 3/20 diverged. With the existing `steering_rate_limit=0.3` clamp, all 20 Chrono rollouts completed: mean 0.274 m, median 0.211 m, 0/20 diverged; worst case was `steer_brake/s010_steer_brake_00066` at 0.766 m RMSE. This is important evidence that a scaling law exists for the NN dynamics model: even the 5 GB data-scale model produces a policy whose clamped Chrono transfer is in the same regime as the 300 GB/v07 policy, while the remaining gap shows up as the same controllable action-smoothness pathology rather than broad tracking failure.
 
+### 15-D NN-Dynamics RL Policy (2026-06-15)
+
+The 15-D tire-normal-force/omega dynamics checkpoint now has a trained PPO tracking policy:
+
+```text
+artifacts/rl_runs/hmmwv_rl_15d_5090_2048env_tmux/model_300.pt
+```
+
+Run setup recovered from `env_cfg.json`:
+
+- 2,048 vectorized NN envs
+- frozen dynamics checkpoint: `hmmwv_transformer_v07_tire_normal_force_omega_300g/checkpoints/best_val.pth`
+- training references: `hmmwv_tire_normal_force_omega_train_refs_20_1100_seed_20260607.npz`
+- 20 Hz policy control (`action_repeat = 5` over 100 Hz NN dynamics)
+- 180 policy steps per episode
+- no steering-rate limiter in this run (`steering_rate_limit = None`)
+
+The NN rollout code was optimized to use the model's last-token `predict_next_delta` path; a direct check showed it is numerically identical to the old full-window `predict_delta(... )[:, -1, :]` path (`max_abs_diff = 0.0`). The NN env and eval script now use `torch.no_grad()` rather than wrapping mutable env buffers in outer `torch.inference_mode()`, which avoids PyTorch inference-tensor reset issues under the `nedm` environment.
+
+Evaluation works in both backends:
+
+| Eval set / backend | Metric note | Mean XY RMSE | Median XY RMSE | Mean XY mean error |
+|---|---|---:|---:|---:|
+| Training refs, NN env | closest comparison to training TensorBoard | 0.213 m | 0.169 m | 0.190 m |
+| Filtered val rest-start refs, NN env | held-out validation set, zero/rest handoff | 0.631 m | 0.445 m | 0.462 m |
+| Filtered val rest-start refs, Chrono env | `nedm` env, CPU, no steering clamp | 0.393 m | 0.287 m | 0.279 m |
+
+The training TensorBoard scalar `/episode/mean_pos_error_m` at iteration 301 was `0.173 m`; this is closest to eval `xy_mean_m`, not eval `xy_rmse_m`. Rechecking `model_300.pt` on the original training references gives average `xy_mean_m = 0.190 m`, which is consistent with the training log. The harder held-out rest-start validation set has several outliers, so its aggregate is substantially higher.
+
+Eval artifacts:
+
+- NN train-ref recheck: `artifacts/rl_runs/hmmwv_rl_15d_5090_2048env_tmux/eval_tracking_model_300_train_refs_recheck/`
+- NN held-out rest-start eval: `artifacts/rl_runs/hmmwv_rl_15d_5090_2048env_tmux/eval_tracking_model_300_val_rest_start/`
+- Chrono held-out rest-start eval: `artifacts/rl_runs/hmmwv_rl_15d_5090_2048env_tmux/chrono_eval_tracking_model_300_val_rest_start/`
+- Reference construction/eval workflow skill: `.agents/hmmwv-nn-eval/`
+- Chrono eval workflow skill: `.agents/hmmwv-chrono-eval/`
+
 ## Bumpy-Terrain Transfer (2026-06-11)
 
 First out-of-regime test: take the **flat-terrain-trained** `model_1999` policy and evaluate it in Chrono on **bumpy rigid-heightmap terrain** (the same `bumpy_field_*.bmp` library the 10 GB bumpy dataset was collected on, 500×500 m patches, height ±0.6 m). The Chrono env now reproduces the exact per-episode terrain: each reference's heightmap is recovered deterministically from its `episode_id` via `assign_height_map_index` (verified to match every stored `height_map_index`), and `HMMWVChronoTrackingEnv._create_sim` passes it to `create_rigid_terrain`. Setup: bumpy reference set `hmmwv_bumpy_refs_20_1100_rest_start.npz` (rest-start; 6 families — bumpy data has no launch_brake/step_steer/aggressive_*), eval config `configs/hmmwv_bumpy_eval.json`, `steering_rate_limit=0.3`, 20 m bound. See the `run-bumpy-terrain-eval` skill for the full recipe.
@@ -89,7 +147,7 @@ The flat-trained policy **does not transfer well to bumpy terrain**: mean RMSE j
 
 - **Braking transfer gap**: the policy tracks turning references in Chrono but diverges on braking-heavy ones — likely a dynamics-model gap (brake response) rather than a policy gap; worth checking v07 open-loop rollout error on launch_brake/steer_brake segments specifically.
 - **v19–v30 sweep** crashed at the first model and was never completed.
-- **RL on the v3_turn_300g model**: the RL backbone is still v07 (trained on 6k+2k); the 300g-trained model has much better open-loop rollouts and is untested as an RL backbone.
-- **Held-out references**: RL eval currently uses training-set segments; no held-out-trajectory evaluation yet.
+- **RL on alternate dynamics backbones**: the current active policy uses the 15-D tire-normal-force/omega v07-style model; the older `v3_turn_300g` backbone remains untested as an RL backbone.
+- **15-D held-out validation outliers**: held-out/rest-start eval now exists for the 15-D policy. The NN env and Chrono env both run, but the validation set has several NN outliers; compare `xy_mean_m` to training logs and inspect per-reference behavior before drawing conclusions from aggregate RMSE alone.
 - **Bumpy-terrain finetune (next major step)**: the flat-trained policy regresses badly on bumpy terrain (mean 0.26 → 1.46 m, 4/20 diverge — see Bumpy-Terrain Transfer above). Plan: (1) finetune the v07 NN dynamics model on the `hmmwv_bumpy_10g_seq_v1` processed cache so it captures bump-induced load/tire dynamics, then (2) finetune/retrain the PPO policy against that bumpy dynamics model, and (3) re-run the bumpy Chrono eval (`run-bumpy-terrain-eval` skill) to measure recovery. The eval harness, reference set, and per-episode terrain reproduction are all done.
 - **Beyond the fixed regime**: bumpy-terrain *evaluation* now exists (heightmap terrain reproduced per episode); friction variation, observation noise, and tire-channel supervision are still out of scope.
