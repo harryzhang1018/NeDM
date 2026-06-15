@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 DEFAULT_RL_DYNAMICS_CHECKPOINT = Path(
-    "artifacts/training_runs/hmmwv_transformer_v07_tire_normal_force_omega_300g/checkpoints/best_val.pt"
+    "artifacts/training_runs/hmmwv_transformer_v07_tire_normal_force_omega_300g/checkpoints/best_val.pth"
 )
 DEFAULT_RL_PROCESSED_DATASET_DIR = Path(
     "artifacts/training_datasets/hmmwv_tire_rigid_300g_normal_force_omega_seq_v1"

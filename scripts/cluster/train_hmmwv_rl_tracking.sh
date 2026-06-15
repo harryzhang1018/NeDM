@@ -50,13 +50,17 @@ SEED="${SEED:-1}"
 SAVE_INTERVAL="${SAVE_INTERVAL:-100}"
 EXP_NAME="${EXP_NAME:-hmmwv-nn-tracking}"
 LOGGER="${LOGGER:-tensorboard}"
-DEFAULT_DYNAMICS_CHECKPOINT="artifacts/training_runs/hmmwv_transformer_v07_tire_normal_force_omega_300g/checkpoints/best_val.pt"
+DEFAULT_DYNAMICS_CHECKPOINT="artifacts/training_runs/hmmwv_transformer_v07_tire_normal_force_omega_300g/checkpoints/best_val.pth"
 
-if [[ -f "$DEFAULT_DYNAMICS_CHECKPOINT" ]] && head -n 1 "$DEFAULT_DYNAMICS_CHECKPOINT" | grep -q "git-lfs"; then
+if [[ ! -f "$DEFAULT_DYNAMICS_CHECKPOINT" ]]; then
+  echo "ERROR: missing dynamics checkpoint: $DEFAULT_DYNAMICS_CHECKPOINT" >&2
+  echo "Run git pull origin main on the cluster login node before submitting." >&2
+  exit 1
+fi
+
+if head -n 1 "$DEFAULT_DYNAMICS_CHECKPOINT" | grep -q "git-lfs"; then
   echo "ERROR: $DEFAULT_DYNAMICS_CHECKPOINT is a Git LFS pointer, not the checkpoint payload." >&2
-  echo "Run this on the cluster login node before submitting:" >&2
-  echo "  git lfs install" >&2
-  echo "  git lfs pull --include='$DEFAULT_DYNAMICS_CHECKPOINT'" >&2
+  echo "Run git pull origin main on the cluster login node to fetch the LFS-free .pth checkpoint." >&2
   exit 1
 fi
 
