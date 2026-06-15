@@ -39,10 +39,24 @@ def resolve_device(device: str) -> str:
     return device
 
 
+def configure_torch_runtime(device: str, matmul_precision: str) -> None:
+    torch.set_float32_matmul_precision(matmul_precision)
+    if device.startswith("cuda") and torch.cuda.is_available():
+        allow_tf32 = matmul_precision != "highest"
+        torch.backends.cuda.matmul.allow_tf32 = allow_tf32
+        torch.backends.cudnn.allow_tf32 = allow_tf32
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train PPO trajectory tracking on frozen NN HMMWV dynamics.")
     parser.add_argument("--exp-name", type=str, default="hmmwv-nn-tracking")
     parser.add_argument("--device", type=str, default="auto")
+    parser.add_argument(
+        "--matmul-precision",
+        choices=["highest", "high", "medium"],
+        default="high",
+        help="Float32 matmul precision. 'high' enables TF32 on CUDA and is faster for transformer inference.",
+    )
     parser.add_argument("--num-envs", type=int, default=1024)
     parser.add_argument("--max-iterations", type=int, default=2000)
     parser.add_argument("--num-steps-per-env", type=int, default=128)
@@ -89,6 +103,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Episode terminates when tracking position error exceeds this (termination.max_position_error_m).",
     )
     parser.add_argument("--action-repeat", type=int, default=5)
+    parser.add_argument(
+        "--steering-rate-limit",
+        type=float,
+        default=None,
+        help="Max adjacent-step change for scaled steering command. Disabled when unset.",
+    )
     parser.add_argument("--obs-history-steps", type=int, default=10)
     parser.add_argument("--reference-preview-steps", type=int, default=10)
     parser.add_argument("--max-episode-steps", type=int, default=180)
@@ -146,6 +166,9 @@ def get_train_cfg(args: argparse.Namespace) -> dict[str, Any]:
         "empirical_normalization": True,
         "logger": args.logger,
         "seed": int(args.seed),
+        "torch": {
+            "matmul_precision": args.matmul_precision,
+        },
     }
 
 
@@ -159,6 +182,7 @@ def get_env_cfg(args: argparse.Namespace) -> dict[str, Any]:
             "processed_dataset_dir": str(args.processed_dataset_dir) if args.processed_dataset_dir else None,
             "reference_path": str(args.reference_path),
             "action_repeat": int(args.action_repeat),
+            "steering_rate_limit": args.steering_rate_limit,
             "obs_history_steps": int(args.obs_history_steps),
             "reference_preview_steps": int(args.reference_preview_steps),
             "max_episode_steps": int(args.max_episode_steps),
@@ -201,6 +225,7 @@ def make_run_dir(args: argparse.Namespace) -> Path:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     args.device = resolve_device(args.device)
+    configure_torch_runtime(args.device, args.matmul_precision)
     ensure_reference_file(args)
     run_dir = make_run_dir(args)
     env_cfg = get_env_cfg(args)
@@ -221,7 +246,10 @@ def main(argv: list[str] | None = None) -> int:
         print("logger disabled; scalar logging is disabled, checkpoint saves remain enabled")
 
     print(f"Starting RL tracking training in {run_dir}")
-    print(f"device={args.device} num_envs={env.num_envs} action_repeat={env.action_repeat}")
+    print(
+        f"device={args.device} num_envs={env.num_envs} action_repeat={env.action_repeat} "
+        f"matmul_precision={args.matmul_precision}"
+    )
     print(f"dynamics_checkpoint={Path(env_cfg['dynamics_checkpoint']).resolve()}")
     print(f"reference_path={Path(env_cfg['reference_path']).resolve()}")
     runner.learn(num_learning_iterations=train_cfg["runner"]["max_iterations"], init_at_random_ep_len=False)

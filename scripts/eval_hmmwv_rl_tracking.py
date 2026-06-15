@@ -94,7 +94,7 @@ def rollout_policy(
         for _ in range(num_envs)
     ]
 
-    with torch.inference_mode():
+    with torch.no_grad():
         for _ in range(max_steps):
             actions = policy(obs.to(env.device))
             obs, rewards, dones, _ = env.step(actions)

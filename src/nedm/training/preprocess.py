@@ -15,6 +15,7 @@ from nedm.training.constants import (
     DEFAULT_ACTION_FIELDS,
     DEFAULT_ROLLOUT_FIELDS,
     DEFAULT_STATE_FIELDS,
+    STATE_FIELD_PRESETS,
 )
 
 
@@ -26,6 +27,7 @@ class SplitBuffers:
     episode_starts: np.ndarray
     episode_lengths: np.ndarray
     rollout: np.ndarray
+    arrays_saved: bool = False
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -70,6 +72,51 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Optional cap per split for quick smoke tests.",
     )
+    parser.add_argument(
+        "--state-field-preset",
+        type=str,
+        choices=sorted(STATE_FIELD_PRESETS),
+        default="default",
+        help="Named state-field preset. Use tire_force_omega for all tire force axes, "
+        "or tire_normal_force_omega for tire Fz plus spindle omega.",
+    )
+    parser.add_argument(
+        "--state-fields",
+        type=str,
+        nargs="+",
+        default=None,
+        help="Explicit state fields. Overrides --state-field-preset when provided.",
+    )
+    parser.add_argument(
+        "--action-fields",
+        type=str,
+        nargs="+",
+        default=None,
+        help="Explicit action fields. Defaults to the standard driver controls.",
+    )
+    parser.add_argument(
+        "--rollout-fields",
+        type=str,
+        nargs="+",
+        default=None,
+        help="Explicit rollout fields. Defaults to x/y/yaw pose.",
+    )
+    parser.add_argument(
+        "--disk-backed-arrays",
+        action="store_true",
+        help="Write .npy arrays through memory maps instead of keeping the full cache in RAM.",
+    )
+    parser.add_argument(
+        "--metadata-only",
+        action="store_true",
+        help="Rebuild metadata.json from already-written arrays and split metadata.",
+    )
+    parser.add_argument(
+        "--stats-chunk-rows",
+        type=int,
+        default=1_000_000,
+        help="Rows per chunk when computing normalization statistics.",
+    )
     return parser.parse_args(argv)
 
 
@@ -110,16 +157,26 @@ def build_split_buffers(
     state_fields: list[str],
     action_fields: list[str],
     rollout_fields: list[str],
+    output_dir: Path | None = None,
+    split: str | None = None,
+    disk_backed_arrays: bool = False,
 ) -> SplitBuffers:
     total_transitions = sum(int(ep["rows"]) - 1 for ep in episodes)
     state_dim = len(state_fields)
     action_dim = len(action_fields)
     rollout_dim = len(rollout_fields)
 
-    states = np.empty((total_transitions, state_dim), dtype=np.float32)
-    actions = np.empty((total_transitions, action_dim), dtype=np.float32)
-    targets = np.empty((total_transitions, state_dim), dtype=np.float32)
-    rollout = np.empty((total_transitions + len(episodes), rollout_dim), dtype=np.float32)
+    def allocate(name: str, shape: tuple[int, ...], dtype: type[np.generic]) -> np.ndarray:
+        if not disk_backed_arrays:
+            return np.empty(shape, dtype=dtype)
+        if output_dir is None or split is None:
+            raise ValueError("output_dir and split are required when disk_backed_arrays=True")
+        return np.lib.format.open_memmap(output_dir / f"{split}_{name}.npy", mode="w+", dtype=dtype, shape=shape)
+
+    states = allocate("states", (total_transitions, state_dim), np.float32)
+    actions = allocate("actions", (total_transitions, action_dim), np.float32)
+    targets = allocate("targets", (total_transitions, state_dim), np.float32)
+    rollout = allocate("rollout", (total_transitions + len(episodes), rollout_dim), np.float32)
     episode_starts = np.empty((len(episodes),), dtype=np.int64)
     episode_lengths = np.empty((len(episodes),), dtype=np.int32)
 
@@ -152,16 +209,23 @@ def build_split_buffers(
         episode_starts=episode_starts,
         episode_lengths=episode_lengths,
         rollout=rollout,
+        arrays_saved=disk_backed_arrays,
     )
 
 
 def save_split(output_dir: Path, split: str, buffers: SplitBuffers, episodes: list[dict[str, Any]]) -> None:
-    np.save(output_dir / f"{split}_states.npy", buffers.states)
-    np.save(output_dir / f"{split}_actions.npy", buffers.actions)
-    np.save(output_dir / f"{split}_targets.npy", buffers.targets)
+    if buffers.arrays_saved:
+        for array in (buffers.states, buffers.actions, buffers.targets, buffers.rollout):
+            flush = getattr(array, "flush", None)
+            if flush is not None:
+                flush()
+    else:
+        np.save(output_dir / f"{split}_states.npy", buffers.states)
+        np.save(output_dir / f"{split}_actions.npy", buffers.actions)
+        np.save(output_dir / f"{split}_targets.npy", buffers.targets)
+        np.save(output_dir / f"{split}_rollout.npy", buffers.rollout)
     np.save(output_dir / f"{split}_episode_starts.npy", buffers.episode_starts)
     np.save(output_dir / f"{split}_episode_lengths.npy", buffers.episode_lengths)
-    np.save(output_dir / f"{split}_rollout.npy", buffers.rollout)
 
     split_metadata = {
         "split": split,
@@ -181,11 +245,76 @@ def save_split(output_dir: Path, split: str, buffers: SplitBuffers, episodes: li
     (output_dir / f"{split}_episodes.json").write_text(json.dumps(split_metadata, indent=2))
 
 
-def summarize_stats(array: np.ndarray) -> tuple[list[float], list[float]]:
-    mean = array.mean(axis=0, dtype=np.float64).astype(np.float32)
-    std = array.std(axis=0, dtype=np.float64).astype(np.float32)
-    std = np.maximum(std, 1e-6)
+def summarize_stats(array: np.ndarray, chunk_rows: int = 1_000_000) -> tuple[list[float], list[float]]:
+    if array.ndim != 2:
+        raise ValueError(f"expected 2D array for stats, got shape {array.shape}")
+    chunk_rows = max(1, int(chunk_rows))
+    total = 0
+    sums = np.zeros((array.shape[1],), dtype=np.float64)
+    sum_squares = np.zeros((array.shape[1],), dtype=np.float64)
+    for start in range(0, array.shape[0], chunk_rows):
+        chunk = np.asarray(array[start : start + chunk_rows], dtype=np.float64)
+        total += int(chunk.shape[0])
+        sums += chunk.sum(axis=0, dtype=np.float64)
+        sum_squares += np.square(chunk).sum(axis=0, dtype=np.float64)
+    mean64 = sums / max(total, 1)
+    variance64 = np.maximum(sum_squares / max(total, 1) - mean64 * mean64, 0.0)
+    mean = mean64.astype(np.float32)
+    std = np.maximum(np.sqrt(variance64).astype(np.float32), 1e-6)
     return mean.tolist(), std.tolist()
+
+
+def build_metadata(
+    dataset_indices: list[dict[str, Any]],
+    dataset_roots: list[Path],
+    output_dir: Path,
+    dt_s: float,
+    state_fields: list[str],
+    action_fields: list[str],
+    rollout_fields: list[str],
+    state_field_preset: str,
+    stats_chunk_rows: int,
+) -> dict[str, Any]:
+    train_states = np.load(output_dir / "train_states.npy", mmap_mode="r")
+    train_actions = np.load(output_dir / "train_actions.npy", mmap_mode="r")
+    train_targets = np.load(output_dir / "train_targets.npy", mmap_mode="r")
+    train_split = load_json(output_dir / "train_episodes.json")
+    val_split = load_json(output_dir / "val_episodes.json")
+
+    state_mean, state_std = summarize_stats(train_states, chunk_rows=stats_chunk_rows)
+    action_mean, action_std = summarize_stats(train_actions, chunk_rows=stats_chunk_rows)
+    target_mean, target_std = summarize_stats(train_targets, chunk_rows=stats_chunk_rows)
+
+    return {
+        "dataset_name": "+".join(dataset_index["dataset_name"] for dataset_index in dataset_indices),
+        "raw_dataset_root": str(dataset_roots[0]),
+        "raw_dataset_roots": [str(dataset_root) for dataset_root in dataset_roots],
+        "processed_at_utc": datetime.now(timezone.utc).isoformat(),
+        "dt_s": dt_s,
+        "state_field_preset": state_field_preset,
+        "state_fields": state_fields,
+        "action_fields": action_fields,
+        "target_fields": [f"delta_{field}" for field in state_fields],
+        "rollout_fields": rollout_fields,
+        "splits": {
+            "train": {
+                "episode_count": int(train_split["episode_count"]),
+                "transition_count": int(train_split["transition_count"]),
+            },
+            "val": {
+                "episode_count": int(val_split["episode_count"]),
+                "transition_count": int(val_split["transition_count"]),
+            },
+        },
+        "normalization": {
+            "state_mean": state_mean,
+            "state_std": state_std,
+            "action_mean": action_mean,
+            "action_std": action_std,
+            "target_mean": target_mean,
+            "target_std": target_std,
+        },
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -222,57 +351,68 @@ def main(argv: list[str] | None = None) -> int:
         for split in split_episodes:
             split_episodes[split] = split_episodes[split][: args.max_episodes_per_split]
 
-    state_fields = list(DEFAULT_STATE_FIELDS)
-    action_fields = list(DEFAULT_ACTION_FIELDS)
-    rollout_fields = list(DEFAULT_ROLLOUT_FIELDS)
+    state_fields = (
+        list(args.state_fields)
+        if args.state_fields is not None
+        else list(STATE_FIELD_PRESETS[args.state_field_preset])
+    )
+    action_fields = list(args.action_fields) if args.action_fields is not None else list(DEFAULT_ACTION_FIELDS)
+    rollout_fields = list(args.rollout_fields) if args.rollout_fields is not None else list(DEFAULT_ROLLOUT_FIELDS)
     dt_s = compute_common_dt_s(dataset_roots)
+
+    if args.metadata_only:
+        metadata = build_metadata(
+            dataset_indices=dataset_indices,
+            dataset_roots=dataset_roots,
+            output_dir=output_dir,
+            dt_s=dt_s,
+            state_fields=state_fields,
+            action_fields=action_fields,
+            rollout_fields=rollout_fields,
+            state_field_preset=args.state_field_preset,
+            stats_chunk_rows=args.stats_chunk_rows,
+        )
+        (output_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
+        print(
+            f"wrote metadata to {output_dir} "
+            f"with {metadata['splits']['train']['transition_count']} train transitions and "
+            f"{metadata['splits']['val']['transition_count']} val transitions"
+        )
+        return 0
 
     train_buffers = build_split_buffers(
         episodes=split_episodes["train"],
         state_fields=state_fields,
         action_fields=action_fields,
         rollout_fields=rollout_fields,
+        output_dir=output_dir,
+        split="train",
+        disk_backed_arrays=bool(args.disk_backed_arrays),
     )
     val_buffers = build_split_buffers(
         episodes=split_episodes["val"],
         state_fields=state_fields,
         action_fields=action_fields,
         rollout_fields=rollout_fields,
+        output_dir=output_dir,
+        split="val",
+        disk_backed_arrays=bool(args.disk_backed_arrays),
     )
 
     save_split(output_dir, "train", train_buffers, split_episodes["train"])
     save_split(output_dir, "val", val_buffers, split_episodes["val"])
 
-    state_mean, state_std = summarize_stats(train_buffers.states)
-    action_mean, action_std = summarize_stats(train_buffers.actions)
-    target_mean, target_std = summarize_stats(train_buffers.targets)
-
-    metadata = {
-        "dataset_name": "+".join(dataset_index["dataset_name"] for dataset_index in dataset_indices),
-        "raw_dataset_root": str(dataset_roots[0]),
-        "raw_dataset_roots": [str(dataset_root) for dataset_root in dataset_roots],
-        "processed_at_utc": datetime.now(timezone.utc).isoformat(),
-        "dt_s": dt_s,
-        "state_fields": state_fields,
-        "action_fields": action_fields,
-        "target_fields": [f"delta_{field}" for field in state_fields],
-        "rollout_fields": rollout_fields,
-        "splits": {
-            split: {
-                "episode_count": len(episodes),
-                "transition_count": int(sum(int(ep["rows"]) - 1 for ep in episodes)),
-            }
-            for split, episodes in split_episodes.items()
-        },
-        "normalization": {
-            "state_mean": state_mean,
-            "state_std": state_std,
-            "action_mean": action_mean,
-            "action_std": action_std,
-            "target_mean": target_mean,
-            "target_std": target_std,
-        },
-    }
+    metadata = build_metadata(
+        dataset_indices=dataset_indices,
+        dataset_roots=dataset_roots,
+        output_dir=output_dir,
+        dt_s=dt_s,
+        state_fields=state_fields,
+        action_fields=action_fields,
+        rollout_fields=rollout_fields,
+        state_field_preset=args.state_field_preset,
+        stats_chunk_rows=args.stats_chunk_rows,
+    )
     (output_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
 
     print(

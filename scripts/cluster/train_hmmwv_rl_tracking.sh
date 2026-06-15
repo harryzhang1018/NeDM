@@ -21,6 +21,7 @@
 #
 #   NUM_ENVS=2048 MAX_ITERATIONS=2000 sbatch scripts/cluster/train_hmmwv_rl_tracking.sh
 #   RUN_NAME=hmmwv_rl_15d_a100 sbatch scripts/cluster/train_hmmwv_rl_tracking.sh
+#   STEERING_RATE_LIMIT=0.08 sbatch scripts/cluster/train_hmmwv_rl_tracking.sh
 #   LOGGER=none sbatch scripts/cluster/train_hmmwv_rl_tracking.sh   # if tensorboard is unavailable
 #
 # Extra train_hmmwv_rl_tracking.py args can be appended after --, for example:
@@ -50,6 +51,8 @@ SEED="${SEED:-1}"
 SAVE_INTERVAL="${SAVE_INTERVAL:-100}"
 EXP_NAME="${EXP_NAME:-hmmwv-nn-tracking}"
 LOGGER="${LOGGER:-tensorboard}"
+MATMUL_PRECISION="${MATMUL_PRECISION:-high}"
+STEERING_RATE_LIMIT="${STEERING_RATE_LIMIT:-}"
 DEFAULT_DYNAMICS_CHECKPOINT="artifacts/training_runs/hmmwv_transformer_v07_tire_normal_force_omega_300g/checkpoints/best_val.pth"
 
 if [[ ! -f "$DEFAULT_DYNAMICS_CHECKPOINT" ]]; then
@@ -76,11 +79,16 @@ train_args=(
   --save-interval "$SAVE_INTERVAL"
   --exp-name "$EXP_NAME"
   --logger "$LOGGER"
+  --matmul-precision "$MATMUL_PRECISION"
   --build-references-if-missing
 )
 
 if [[ -n "${RUN_NAME:-}" ]]; then
   train_args+=(--run-name "$RUN_NAME")
+fi
+
+if [[ -n "$STEERING_RATE_LIMIT" ]]; then
+  train_args+=(--steering-rate-limit "$STEERING_RATE_LIMIT")
 fi
 
 if [[ $# -gt 0 ]]; then
@@ -93,6 +101,6 @@ fi
 echo "starting HMMWV RL tracking training"
 echo "job_id=${SLURM_JOB_ID:-local}"
 echo "num_envs=$NUM_ENVS max_iterations=$MAX_ITERATIONS num_steps_per_env=$NUM_STEPS_PER_ENV"
-echo "logger=$LOGGER"
+echo "logger=$LOGGER matmul_precision=$MATMUL_PRECISION steering_rate_limit=${STEERING_RATE_LIMIT:-none}"
 echo "extra_args=$*"
 python scripts/train_hmmwv_rl_tracking.py "${train_args[@]}"

@@ -53,6 +53,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Optional cap on validation windows for quick smoke tests.",
     )
+    parser.add_argument(
+        "--resume-from-checkpoint",
+        type=Path,
+        default=None,
+        help="Resume model/optimizer/global_step from a previous checkpoint.",
+    )
     return parser.parse_args(argv)
 
 
@@ -76,6 +82,8 @@ def merge_cli_overrides(config: dict[str, Any], args: argparse.Namespace) -> dic
         merged["training"]["max_train_windows"] = int(args.max_train_windows)
     if args.max_val_windows is not None:
         merged["training"]["max_val_windows"] = int(args.max_val_windows)
+    if args.resume_from_checkpoint is not None:
+        merged["training"]["resume_from_checkpoint"] = str(args.resume_from_checkpoint)
     return merged
 
 
@@ -212,7 +220,10 @@ class HMMWVTrainer:
         self.metrics_path = self.output_dir / "metrics.jsonl"
         self.best_val_loss = float("inf")
         self.global_step = 0
+        self.start_epoch = 0
         self.dt_s = float(self.metadata["dt_s"])
+        if training_cfg.get("resume_from_checkpoint"):
+            self.load_checkpoint(Path(training_cfg["resume_from_checkpoint"]))
 
     def scheduled_lr(self) -> float:
         optimizer_cfg = self.config["optimizer"]
@@ -418,6 +429,28 @@ class HMMWVTrainer:
         )
         return checkpoint_path
 
+    def load_checkpoint(self, checkpoint_path: Path) -> None:
+        checkpoint_path = checkpoint_path.expanduser().resolve()
+        if not checkpoint_path.exists():
+            raise FileNotFoundError(f"resume checkpoint not found: {checkpoint_path}")
+        checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
+        self.model.load_state_dict(checkpoint["model_state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        self.start_epoch = int(checkpoint.get("epoch", 0))
+        self.global_step = int(checkpoint.get("global_step", 0))
+
+        if self.metrics_path.exists():
+            records = [
+                json.loads(line)
+                for line in self.metrics_path.read_text().splitlines()
+                if line.strip()
+            ]
+            if records:
+                self.best_val_loss = min(float(record["val_loss"]) for record in records)
+        elif checkpoint.get("metrics") and "val_loss" in checkpoint["metrics"]:
+            self.best_val_loss = float(checkpoint["metrics"]["val_loss"])
+        print(f"resumed from {checkpoint_path} at epoch {self.start_epoch}, global_step {self.global_step}")
+
     def log_metrics(self, record: dict[str, Any]) -> None:
         with self.metrics_path.open("a") as fp:
             fp.write(json.dumps(record) + "\n")
@@ -425,7 +458,11 @@ class HMMWVTrainer:
     def train(self) -> Path:
         train_iterator = infinite_loader(self.train_loader)
         last_checkpoint = self.checkpoint_dir / "last.pt"
-        for epoch in range(1, self.num_epochs + 1):
+        if self.start_epoch >= self.num_epochs:
+            print(f"training already reached epoch {self.start_epoch}; target is {self.num_epochs}")
+            return last_checkpoint
+
+        for epoch in range(self.start_epoch + 1, self.num_epochs + 1):
             self.model.train()
             epoch_losses: list[float] = []
             for _ in range(self.steps_per_epoch):

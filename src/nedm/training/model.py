@@ -65,3 +65,7 @@ class HMMWVDynamicsModel(nn.Module):
     def predict_delta(self, states: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
         return self.denormalize_target(self.forward(states, actions))
 
+    def predict_next_delta(self, states: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
+        tokens = torch.cat([self.normalize_state(states), self.normalize_action(actions)], dim=-1)
+        features = self.backbone(tokens)
+        return self.denormalize_target(self.head(features[:, -1, :]))

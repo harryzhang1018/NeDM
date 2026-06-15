@@ -32,6 +32,7 @@ def default_env_cfg() -> dict[str, Any]:
         "action_high": [1.0, 1.0, 1.0],
         "action_center": "dataset_mean",
         "action_scale": [1.0, 0.7, 0.5],
+        "steering_rate_limit": None,
         "reward": {
             "position_sigma_m": 2.0,
             "yaw_sigma_rad": 0.35,
@@ -248,9 +249,17 @@ class HMMWVNeuralTrackingEnv(VecEnv):
     def step(self, actions: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, dict]:
         actions = actions.to(device=self.device, dtype=torch.float32)
         driver_actions = self._scale_policy_actions(actions)
+        steering_rate_limit = self.cfg.get("steering_rate_limit")
+        if steering_rate_limit is not None:
+            limit = float(steering_rate_limit)
+            driver_actions[:, 0] = torch.clamp(
+                driver_actions[:, 0],
+                self.last_actions[:, 0] - limit,
+                self.last_actions[:, 0] + limit,
+            )
         self.actions = driver_actions
 
-        with torch.inference_mode():
+        with torch.no_grad():
             for _ in range(self.action_repeat):
                 self._nn_substep(driver_actions)
 
@@ -379,27 +388,30 @@ class HMMWVNeuralTrackingEnv(VecEnv):
         dones: torch.Tensor,
         time_outs: torch.Tensor,
     ) -> dict[str, Any]:
+        tracking_log = {
+            "/tracking/track_reward": reward_terms["track_reward"].mean(),
+            "/tracking/position_error_m": reward_terms["position_error_m"].mean(),
+            "/tracking/yaw_error_abs_rad": reward_terms["yaw_error_abs_rad"].mean(),
+            "/tracking/state_error_norm": reward_terms["state_error_norm"].mean(),
+            "/tracking/action_rate": reward_terms["action_rate"].mean(),
+            "/tracking/throttle_brake": reward_terms["throttle_brake"].mean(),
+        }
         extras: dict[str, Any] = {
             "observations": {"critic": self.obs_buf},
             "time_outs": time_outs,
-            "log": {
-                "/tracking/track_reward": reward_terms["track_reward"].mean(),
-                "/tracking/position_error_m": reward_terms["position_error_m"].mean(),
-                "/tracking/yaw_error_abs_rad": reward_terms["yaw_error_abs_rad"].mean(),
-                "/tracking/state_error_norm": reward_terms["state_error_norm"].mean(),
-                "/tracking/action_rate": reward_terms["action_rate"].mean(),
-                "/tracking/throttle_brake": reward_terms["throttle_brake"].mean(),
-            },
+            "log": tracking_log,
         }
         done_env_ids = dones.nonzero(as_tuple=False).flatten()
         if done_env_ids.numel() > 0:
             lengths = torch.clamp(self.episode_length_buf[done_env_ids].float(), min=1.0)
-            extras["episode"] = {
+            episode_log = {
                 "/episode/reward": self.episode_reward_sum[done_env_ids].mean(),
                 "/episode/length": lengths.mean(),
                 "/episode/mean_pos_error_m": (self.episode_pos_error_sum[done_env_ids] / lengths).mean(),
                 "/episode/mean_track_reward": (self.episode_track_reward_sum[done_env_ids] / lengths).mean(),
             }
+            episode_log.update(tracking_log)
+            extras["episode"] = episode_log
         return extras
 
     def _compute_observations(self) -> None:
