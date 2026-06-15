@@ -77,6 +77,10 @@ def load_checkpoint_metadata(
     return metadata, config, int(config["model"]["block_size"]), float(metadata["dt_s"])
 
 
+def state_fields_require_tire_capture(state_fields: list[str]) -> bool:
+    return any(field.startswith("tire_") for field in state_fields)
+
+
 class HMMWVChronoTrackingEnv(VecEnv):
     """Chrono HMMWV trajectory tracking env for policy evaluation.
 
@@ -117,6 +121,7 @@ class HMMWVChronoTrackingEnv(VecEnv):
         self.state_fields = list(self.metadata["state_fields"])
         self.action_fields = list(self.metadata["action_fields"])
         self.state_index = {field_name: index for index, field_name in enumerate(self.state_fields)}
+        self.include_tires = state_fields_require_tire_capture(self.state_fields)
         self.reference_set = load_reference_set(self.cfg["reference_path"])
         self._validate_reference_set(self.reference_set)
 
@@ -220,9 +225,18 @@ class HMMWVChronoTrackingEnv(VecEnv):
         if abs(reference_set.dt_s - self.dt_s) > 1.0e-8:
             raise ValueError(f"Reference dt_s={reference_set.dt_s} does not match checkpoint dt_s={self.dt_s}")
         if reference_set.state_fields != self.state_fields:
-            raise ValueError("Reference state fields do not match dynamics checkpoint metadata")
+            raise ValueError(
+                "Reference state fields do not match dynamics checkpoint metadata "
+                f"({len(reference_set.state_fields)} reference fields vs "
+                f"{len(self.state_fields)} checkpoint fields). Rebuild the RL reference set "
+                "from the processed dataset used by the dynamics checkpoint."
+            )
         if reference_set.action_fields != self.action_fields:
-            raise ValueError("Reference action fields do not match dynamics checkpoint metadata")
+            raise ValueError(
+                "Reference action fields do not match dynamics checkpoint metadata "
+                f"({len(reference_set.action_fields)} reference fields vs "
+                f"{len(self.action_fields)} checkpoint fields)."
+            )
 
     def _observation_dim(self) -> int:
         state_dim = len(self.state_fields)
@@ -488,7 +502,7 @@ class HMMWVChronoTrackingEnv(VecEnv):
             sample_index=0,
             time_s=time_s,
             driver_inputs=sim.driver_inputs,
-            include_tires=False,
+            include_tires=self.include_tires,
         )
         state = np.asarray([float(row[field]) for field in self.state_fields], dtype=np.float32)
         pose = np.asarray([float(row["pos_x_m"]), float(row["pos_y_m"]), float(row["yaw_rad"])], dtype=np.float32)

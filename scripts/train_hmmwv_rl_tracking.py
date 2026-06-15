@@ -17,7 +17,20 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from nedm.rl.hmmwv_tracking_env import HMMWVNeuralTrackingEnv, default_env_cfg, merge_env_cfg
+from nedm.rl.defaults import (
+    DEFAULT_RL_DYNAMICS_CHECKPOINT,
+    DEFAULT_RL_PROCESSED_DATASET_DIR,
+    DEFAULT_RL_REFERENCE_PATH,
+)
 from nedm.rl.references import build_reference_set, save_reference_set
+
+
+class NoOpSummaryWriter:
+    def add_scalar(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+    def save_file(self, *args: Any, **kwargs: Any) -> None:
+        return None
 
 
 def resolve_device(device: str) -> str:
@@ -40,8 +53,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--dynamics-checkpoint",
         type=Path,
-        default=Path("artifacts/training_runs/hmmwv_transformer_v07_context128_b64/checkpoints/best_val.pt"),
-        help="Frozen NN dynamics checkpoint. Swap this to v04/v07/future checkpoints.",
+        default=DEFAULT_RL_DYNAMICS_CHECKPOINT,
+        help="Frozen NN dynamics checkpoint.",
     )
     parser.add_argument(
         "--processed-dataset-dir",
@@ -52,7 +65,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--reference-path",
         type=Path,
-        default=Path("artifacts/rl_reference_sets/hmmwv_train_refs_20_1100_seed_20260607.npz"),
+        default=DEFAULT_RL_REFERENCE_PATH,
         help="Compact reference set produced by build_hmmwv_rl_references.py.",
     )
     parser.add_argument(
@@ -63,7 +76,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--reference-source-dir",
         type=Path,
-        default=Path("artifacts/training_datasets/hmmwv_turn_300g_plus_base_seq_v1"),
+        default=DEFAULT_RL_PROCESSED_DATASET_DIR,
         help="Processed dataset used only when building missing references.",
     )
     parser.add_argument("--num-references", type=int, default=20)
@@ -82,7 +95,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output-root", type=Path, default=Path("artifacts/rl_runs"))
     parser.add_argument("--run-name", type=str, default=None)
     parser.add_argument("--save-interval", type=int, default=100)
-    parser.add_argument("--logger", type=str, default="tensorboard")
+    parser.add_argument(
+        "--logger",
+        type=str,
+        default="tensorboard",
+        help="RSL-RL logger: tensorboard, wandb, neptune, or none for smoke tests without scalar logging.",
+    )
     return parser.parse_args(argv)
 
 
@@ -197,6 +215,10 @@ def main(argv: list[str] | None = None) -> int:
 
     env = HMMWVNeuralTrackingEnv(env_cfg, device=args.device)
     runner = OnPolicyRunner(env, train_cfg, log_dir=str(run_dir), device=args.device)
+    if str(args.logger).lower() in {"none", "off", "disabled"}:
+        runner.writer = NoOpSummaryWriter()
+        runner.logger_type = "none"
+        print("logger disabled; scalar logging is disabled, checkpoint saves remain enabled")
 
     print(f"Starting RL tracking training in {run_dir}")
     print(f"device={args.device} num_envs={env.num_envs} action_repeat={env.action_repeat}")

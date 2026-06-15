@@ -7,6 +7,7 @@ from typing import Any
 import torch
 from rsl_rl.env import VecEnv
 
+from nedm.rl.defaults import DEFAULT_RL_DYNAMICS_CHECKPOINT, DEFAULT_RL_REFERENCE_PATH
 from nedm.rl.dynamics import FrozenDynamics, load_frozen_dynamics
 from nedm.rl.references import ReferenceSet, load_reference_set
 
@@ -19,9 +20,9 @@ def default_env_cfg() -> dict[str, Any]:
     return {
         "num_envs": 1024,
         "device": "cuda",
-        "dynamics_checkpoint": "artifacts/training_runs/hmmwv_transformer_v07_context128_b64/checkpoints/best_val.pt",
+        "dynamics_checkpoint": str(DEFAULT_RL_DYNAMICS_CHECKPOINT),
         "processed_dataset_dir": None,
-        "reference_path": "artifacts/rl_reference_sets/hmmwv_train_refs_20_1100_seed_20260607.npz",
+        "reference_path": str(DEFAULT_RL_REFERENCE_PATH),
         "action_repeat": 5,
         "obs_history_steps": 10,
         "reference_preview_steps": 10,
@@ -172,10 +173,21 @@ class HMMWVNeuralTrackingEnv(VecEnv):
     def _validate_reference_set(self, reference_set: ReferenceSet, dynamics: FrozenDynamics) -> None:
         if abs(reference_set.dt_s - dynamics.dt_s) > 1.0e-8:
             raise ValueError(f"Reference dt_s={reference_set.dt_s} does not match model dt_s={dynamics.dt_s}")
-        if reference_set.state_fields != list(dynamics.metadata["state_fields"]):
-            raise ValueError("Reference state fields do not match dynamics checkpoint metadata")
-        if reference_set.action_fields != list(dynamics.metadata["action_fields"]):
-            raise ValueError("Reference action fields do not match dynamics checkpoint metadata")
+        dynamics_state_fields = list(dynamics.metadata["state_fields"])
+        dynamics_action_fields = list(dynamics.metadata["action_fields"])
+        if reference_set.state_fields != dynamics_state_fields:
+            raise ValueError(
+                "Reference state fields do not match dynamics checkpoint metadata "
+                f"({len(reference_set.state_fields)} reference fields vs "
+                f"{len(dynamics_state_fields)} checkpoint fields). Rebuild the RL reference set "
+                "from the processed dataset used by the dynamics checkpoint."
+            )
+        if reference_set.action_fields != dynamics_action_fields:
+            raise ValueError(
+                "Reference action fields do not match dynamics checkpoint metadata "
+                f"({len(reference_set.action_fields)} reference fields vs "
+                f"{len(dynamics_action_fields)} checkpoint fields)."
+            )
 
     def _observation_dim(self) -> int:
         state_dim = len(self.state_fields)

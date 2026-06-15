@@ -11,6 +11,7 @@ SRC_ROOT = REPO_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
+from nedm.rl.defaults import DEFAULT_RL_PROCESSED_DATASET_DIR, DEFAULT_RL_REFERENCE_PATH
 from nedm.rl.references import build_reference_set, save_reference_set, summarize_reference_set
 
 
@@ -19,7 +20,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--processed-dataset-dir",
         type=Path,
-        default=Path("artifacts/training_datasets/hmmwv_turn_300g_plus_base_seq_v1"),
+        default=DEFAULT_RL_PROCESSED_DATASET_DIR,
         help="Processed HMMWV dataset cache directory.",
     )
     parser.add_argument("--split", type=str, default="train", choices=["train", "val"], help="Source split.")
@@ -45,7 +46,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("artifacts/rl_reference_sets/hmmwv_train_refs_20_1100_seed_20260607.npz"),
+        default=DEFAULT_RL_REFERENCE_PATH,
         help="Output compact reference set path.",
     )
     return parser.parse_args(argv)
