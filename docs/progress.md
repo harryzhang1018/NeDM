@@ -2,7 +2,7 @@
 
 A living log of the overall project state, so both of us can see at a glance what is done, what the headline numbers are, and what is next. Update this file whenever a milestone lands or a headline metric changes.
 
-Last updated: 2026-06-15 (15-D tire-normal-force/omega dynamics model, RL policy, NN + Chrono eval)
+Last updated: 2026-06-16 (15-D bumpy cache, bumpy refs, flat-vs-bumpy NN + Chrono eval)
 
 ## Status At A Glance
 
@@ -10,7 +10,7 @@ Last updated: 2026-06-15 (15-D tire-normal-force/omega dynamics model, RL policy
 |---|---|---|---|
 | 1 | Rigid flat-terrain HMMWV dataset | Done | ~310 GB across 4 dataset generations, 100 Hz episode CSVs |
 | 2 | NN dynamics model for HMMWV | Done | Upgraded from 7-D state to 15-D tire-normal-force/omega state; current RL backbone is `hmmwv_transformer_v07_tire_normal_force_omega_300g` |
-| 3 | RL tracking on NN dynamics + Chrono eval | Done (first pass) | 15-D policy `hmmwv_rl_15d_5090_2048env_tmux/model_300.pt`: NN and Chrono eval both run on train refs and filtered rest-start validation refs |
+| 3 | RL tracking on NN dynamics + Chrono eval | Done (first pass) | 15-D policy eval now covers flat and bumpy rest-start refs; bumpy terrain degrades Chrono transfer substantially |
 
 ## Milestone 1: Rigid Flat-Terrain HMMWV Dataset
 
@@ -132,6 +132,46 @@ Eval artifacts:
 - Reference construction/eval workflow skill: `.agents/hmmwv-nn-eval/`
 - Chrono eval workflow skill: `.agents/hmmwv-chrono-eval/`
 
+### 15-D Bumpy-Terrain Data and Transfer Check (2026-06-16)
+
+The existing bumpy raw shards did include tire channels, but the old processed bumpy cache and compact references were 7-D. A new 15-D cache was built from the same raw bumpy heightmap data using the tire-normal-force/omega state preset:
+
+```text
+artifacts/training_datasets/hmmwv_bumpy_10g_normal_force_omega_seq_v1
+```
+
+The cache has 1,104 train episodes / 3.67 M train transitions and 256 val episodes / 0.84 M val transitions. State arrays are 15-D and match the current `hmmwv_transformer_v07_tire_normal_force_omega_300g` checkpoint exactly. New compact 20-reference sets were also built:
+
+- `artifacts/rl_reference_sets/hmmwv_bumpy_10g_normal_force_omega_train_refs_20_1100_seed_20260607.npz`
+- `artifacts/rl_reference_sets/hmmwv_bumpy_10g_normal_force_omega_train_refs_20_1100_rest_start.npz`
+- `artifacts/rl_reference_sets/hmmwv_bumpy_10g_normal_force_omega_val_refs_20_1100_rest_start.npz`
+
+Chrono bumpy evaluation reproduces the terrain per trajectory, not just per rollout index: `HMMWVChronoTrackingEnv._create_sim` resolves the bumpy heightmap from each reference's `episode_id`, and the selected 20 bumpy validation references were verified against the raw episode JSON `height_map_index` values with 0/20 mismatches.
+
+Flat-vs-bumpy comparison for the newer 15-D run used:
+
+```text
+artifacts/rl_runs/hmmwv_rl_15d_5090_2048env_tmux_v2/model_500.pt
+```
+
+The flat references are the existing rigid-terrain validation rest-start set (`t300_*`), while the bumpy references are held-out 15-D bumpy validation rest-start refs (`b10_*`). They are not trajectory-paired, but they use the same policy and the same 20-rollout family mix.
+
+| Eval backend / terrain | Mean XY RMSE | Median XY RMSE | Mean reward | Notes |
+|---|---:|---:|---:|---|
+| NN env, flat refs | 0.429 m | 0.342 m | 162.67 | `eval_tracking_model_500_val_rest_start` |
+| NN env, bumpy refs | 0.458 m | 0.401 m | 146.84 | mild degradation: +7% mean RMSE, +17% median RMSE |
+| Chrono, flat refs | 0.246 m | 0.217 m | 161.44 | `chrono_eval_tracking_model_500_val_rest_start` |
+| Chrono, bumpy refs | 0.615 m | 0.523 m | 135.41 | large degradation: +150% mean RMSE, +142% median RMSE |
+
+Finding: the 15-D NN env shows only mild degradation on bumpy references, but real Chrono bumpy transfer degrades strongly. The worst Chrono bumpy cases were `doublet_steer/b10_s002_doublet_steer_00023` at 1.95 m RMSE and `steer_brake/b10_s002_steer_brake_00021` at 1.74 m RMSE. This indicates that adding tire normal force and spindle omega to the flat-terrain dynamics state helps the policy interface, but it does not by itself close the terrain-domain gap. The dynamics model and policy still need bumpy-terrain adaptation.
+
+Artifacts:
+
+- Flat NN summary: `artifacts/rl_runs/hmmwv_rl_15d_5090_2048env_tmux_v2/eval_tracking_model_500_val_rest_start/summary.json`
+- Flat Chrono summary: `artifacts/rl_runs/hmmwv_rl_15d_5090_2048env_tmux_v2/chrono_eval_tracking_model_500_val_rest_start/summary.json`
+- Bumpy NN summary: `artifacts/rl_runs/hmmwv_rl_15d_5090_2048env_tmux_v2/eval_bumpy15d_model500_val_rest_start/summary.json`
+- Bumpy Chrono summary: `artifacts/rl_runs/hmmwv_rl_15d_5090_2048env_tmux_v2/chrono_eval_bumpy15d_model500_val_rest_start/summary.json`
+
 ## Bumpy-Terrain Transfer (2026-06-11)
 
 First out-of-regime test: take the **flat-terrain-trained** `model_1999` policy and evaluate it in Chrono on **bumpy rigid-heightmap terrain** (the same `bumpy_field_*.bmp` library the 10 GB bumpy dataset was collected on, 500×500 m patches, height ±0.6 m). The Chrono env now reproduces the exact per-episode terrain: each reference's heightmap is recovered deterministically from its `episode_id` via `assign_height_map_index` (verified to match every stored `height_map_index`), and `HMMWVChronoTrackingEnv._create_sim` passes it to `create_rigid_terrain`. Setup: bumpy reference set `hmmwv_bumpy_refs_20_1100_rest_start.npz` (rest-start; 6 families — bumpy data has no launch_brake/step_steer/aggressive_*), eval config `configs/hmmwv_bumpy_eval.json`, `steering_rate_limit=0.3`, 20 m bound. See the `run-bumpy-terrain-eval` skill for the full recipe.
@@ -149,5 +189,5 @@ The flat-trained policy **does not transfer well to bumpy terrain**: mean RMSE j
 - **v19–v30 sweep** crashed at the first model and was never completed.
 - **RL on alternate dynamics backbones**: the current active policy uses the 15-D tire-normal-force/omega v07-style model; the older `v3_turn_300g` backbone remains untested as an RL backbone.
 - **15-D held-out validation outliers**: held-out/rest-start eval now exists for the 15-D policy. The NN env and Chrono env both run, but the validation set has several NN outliers; compare `xy_mean_m` to training logs and inspect per-reference behavior before drawing conclusions from aggregate RMSE alone.
-- **Bumpy-terrain finetune (next major step)**: the flat-trained policy regresses badly on bumpy terrain (mean 0.26 → 1.46 m, 4/20 diverge — see Bumpy-Terrain Transfer above). Plan: (1) finetune the v07 NN dynamics model on the `hmmwv_bumpy_10g_seq_v1` processed cache so it captures bump-induced load/tire dynamics, then (2) finetune/retrain the PPO policy against that bumpy dynamics model, and (3) re-run the bumpy Chrono eval (`run-bumpy-terrain-eval` skill) to measure recovery. The eval harness, reference set, and per-episode terrain reproduction are all done.
+- **Bumpy-terrain finetune (next major step)**: the flat-trained policies regress on bumpy terrain. The older 7-D/v07 check degraded from mean 0.26 → 1.46 m with 4/20 divergences, and the newer 15-D `model_500.pt` check degraded from mean 0.25 → 0.62 m in Chrono. Plan: (1) finetune the current 15-D tire-normal-force/omega NN dynamics model on `hmmwv_bumpy_10g_normal_force_omega_seq_v1`, then (2) finetune/retrain the PPO policy against that bumpy dynamics model, and (3) re-run the 15-D bumpy NN + Chrono eval to measure recovery. The 15-D bumpy cache, reference sets, eval helper config, and per-episode terrain reproduction are all done.
 - **Beyond the fixed regime**: bumpy-terrain *evaluation* now exists (heightmap terrain reproduced per episode); friction variation, observation noise, and tire-channel supervision are still out of scope.

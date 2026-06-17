@@ -63,6 +63,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--num-learning-epochs", type=int, default=5)
     parser.add_argument("--num-mini-batches", type=int, default=8)
     parser.add_argument("--learning-rate", type=float, default=3.0e-4)
+    parser.add_argument("--entropy-coef", type=float, default=0.003)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument(
         "--dynamics-checkpoint",
@@ -130,7 +131,7 @@ def get_train_cfg(args: argparse.Namespace) -> dict[str, Any]:
             "class_name": "PPO",
             "clip_param": 0.2,
             "desired_kl": 0.01,
-            "entropy_coef": 0.003,
+            "entropy_coef": float(args.entropy_coef),
             "gamma": 0.99,
             "lam": 0.95,
             "learning_rate": float(args.learning_rate),
