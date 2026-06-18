@@ -1,0 +1,28 @@
+{
+  "episode_id": "t300_s113_chirp_steer_00003",
+  "scenario_family": "chirp_steer",
+  "split": "val",
+  "context_steps": 128,
+  "dt_s": 0.01,
+  "rollout_steps": 5727,
+  "metrics": {
+    "vel_body_x_mps": 0.6154064361722301,
+    "vel_body_y_mps": 0.12566269357710572,
+    "roll_rad": 0.0017452018507088825,
+    "pitch_rad": 0.0004753150189235003,
+    "roll_rate_radps": 0.008242622950568589,
+    "ang_vel_body_y_radps": 0.005124724562260759,
+    "yaw_rate_radps": 0.021385169054740086,
+    "tire_fl_force_wheel_fz_n": 226.89739903202945,
+    "tire_fr_force_wheel_fz_n": 238.42005178623296,
+    "tire_rl_force_wheel_fz_n": 271.9796350372579,
+    "tire_rr_force_wheel_fz_n": 258.2508167944489,
+    "tire_fl_spindle_omega_radps": 0.9706818177246813,
+    "tire_fr_spindle_omega_radps": 0.8826077316598169,
+    "tire_rl_spindle_omega_radps": 1.0255621485075173,
+    "tire_rr_spindle_omega_radps": 0.9965026913600319,
+    "xy_rmse_m": 53.73015622069231,
+    "yaw_rmse_rad": 0.15649885387732226
+  },
+  "plot_path": "/home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_v07_tire_normal_force_omega_300g/plots/random_val_overlays_n20_seed_20260525/t300_s113_chirp_steer_00003_overlay.png"
+}

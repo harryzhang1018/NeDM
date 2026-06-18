@@ -1,0 +1,346 @@
+{
+  "normal15": {
+    "num_episodes": 20,
+    "xy_rmse_over_path_mean": 0.03243024140069781,
+    "xy_rmse_over_path_median": 0.026018288429701948,
+    "xy_rmse_over_path_min": 0.0064887863012557485,
+    "xy_rmse_over_path_max": 0.07733083802111208,
+    "episodes": [
+      {
+        "episode_id": "t300_s093_chirp_steer_00024",
+        "family": "chirp_steer",
+        "path_length_m": 632.9683453387875,
+        "xy_rmse_m": 46.51124748464746,
+        "xy_rmse_over_path": 0.07348115877698902,
+        "yaw_rmse_rad": 0.16562159282850525
+      },
+      {
+        "episode_id": "t300_s113_chirp_steer_00003",
+        "family": "chirp_steer",
+        "path_length_m": 694.8089222313024,
+        "xy_rmse_m": 53.73015622069231,
+        "xy_rmse_over_path": 0.07733083802111208,
+        "yaw_rmse_rad": 0.15649885387732226
+      },
+      {
+        "episode_id": "t300_s010_doublet_steer_00014",
+        "family": "doublet_steer",
+        "path_length_m": 654.5893776615562,
+        "xy_rmse_m": 12.599195036833578,
+        "xy_rmse_over_path": 0.019247478597716822,
+        "yaw_rmse_rad": 0.03568922793878319
+      },
+      {
+        "episode_id": "t300_s106_doublet_steer_00005",
+        "family": "doublet_steer",
+        "path_length_m": 711.355866573959,
+        "xy_rmse_m": 19.733973700640682,
+        "xy_rmse_over_path": 0.0277413522934501,
+        "yaw_rmse_rad": 0.05172264280751906
+      },
+      {
+        "episode_id": "t300_s126_doublet_steer_00021",
+        "family": "doublet_steer",
+        "path_length_m": 729.3007622687819,
+        "xy_rmse_m": 19.3011611193897,
+        "xy_rmse_over_path": 0.026465296785575423,
+        "yaw_rmse_rad": 0.06104166949805675
+      },
+      {
+        "episode_id": "t300_s000_multi_steer_00025",
+        "family": "multi_steer",
+        "path_length_m": 500.2586694015691,
+        "xy_rmse_m": 37.57180787599011,
+        "xy_rmse_over_path": 0.07510476114473963,
+        "yaw_rmse_rad": 0.15548452987333505
+      },
+      {
+        "episode_id": "t300_s000_multi_steer_00042",
+        "family": "multi_steer",
+        "path_length_m": 305.34379026133894,
+        "xy_rmse_m": 1.9813106034212844,
+        "xy_rmse_over_path": 0.0064887863012557485,
+        "yaw_rmse_rad": 0.055646098735097384
+      },
+      {
+        "episode_id": "t300_s001_multi_steer_00038",
+        "family": "multi_steer",
+        "path_length_m": 594.793696823657,
+        "xy_rmse_m": 4.107915466805746,
+        "xy_rmse_over_path": 0.006906454269342486,
+        "yaw_rmse_rad": 0.022886367725819277
+      },
+      {
+        "episode_id": "t300_s024_multi_steer_00024",
+        "family": "multi_steer",
+        "path_length_m": 351.0474762609935,
+        "xy_rmse_m": 6.42861948146723,
+        "xy_rmse_over_path": 0.018312678244944113,
+        "yaw_rmse_rad": 0.04452500791050955
+      },
+      {
+        "episode_id": "t300_s050_multi_steer_00024",
+        "family": "multi_steer",
+        "path_length_m": 410.18002328928844,
+        "xy_rmse_m": 10.488828256219879,
+        "xy_rmse_over_path": 0.02557128007382847,
+        "yaw_rmse_rad": 0.09028694471050916
+      },
+      {
+        "episode_id": "t300_s057_multi_steer_00040",
+        "family": "multi_steer",
+        "path_length_m": 342.02074539232456,
+        "xy_rmse_m": 14.641003321886256,
+        "xy_rmse_over_path": 0.04280735458047107,
+        "yaw_rmse_rad": 0.07246350247863637
+      },
+      {
+        "episode_id": "t300_s059_multi_steer_00020",
+        "family": "multi_steer",
+        "path_length_m": 391.2303322013872,
+        "xy_rmse_m": 15.192568839706428,
+        "xy_rmse_over_path": 0.0388327989658174,
+        "yaw_rmse_rad": 0.1988593299975374
+      },
+      {
+        "episode_id": "t300_s082_multi_steer_00063",
+        "family": "multi_steer",
+        "path_length_m": 752.0558088647699,
+        "xy_rmse_m": 17.55261777824438,
+        "xy_rmse_over_path": 0.02333951492873926,
+        "yaw_rmse_rad": 0.090101778567462
+      },
+      {
+        "episode_id": "t300_s110_multi_steer_00003",
+        "family": "multi_steer",
+        "path_length_m": 797.9650685928167,
+        "xy_rmse_m": 10.413430242669575,
+        "xy_rmse_over_path": 0.01304998257759991,
+        "yaw_rmse_rad": 0.061552415562802214
+      },
+      {
+        "episode_id": "t300_s003_sine_steer_00003",
+        "family": "sine_steer",
+        "path_length_m": 978.0039908446199,
+        "xy_rmse_m": 34.21054767561643,
+        "xy_rmse_over_path": 0.03497996735787515,
+        "yaw_rmse_rad": 0.08567374295628635
+      },
+      {
+        "episode_id": "t300_s007_sine_steer_00001",
+        "family": "sine_steer",
+        "path_length_m": 376.1674879614859,
+        "xy_rmse_m": 16.363572654214778,
+        "xy_rmse_over_path": 0.043500762766319055,
+        "yaw_rmse_rad": 0.0734264186604778
+      },
+      {
+        "episode_id": "t300_s014_sine_steer_00037",
+        "family": "sine_steer",
+        "path_length_m": 514.6001560241397,
+        "xy_rmse_m": 4.845755475709757,
+        "xy_rmse_over_path": 0.009416544901868325,
+        "yaw_rmse_rad": 0.020907074712087543
+      },
+      {
+        "episode_id": "t300_s046_sine_steer_00034",
+        "family": "sine_steer",
+        "path_length_m": 559.0371164442086,
+        "xy_rmse_m": 14.153395476549965,
+        "xy_rmse_over_path": 0.02531745220527314,
+        "yaw_rmse_rad": 0.06216096002918105
+      },
+      {
+        "episode_id": "t300_s081_steer_brake_00000",
+        "family": "steer_brake",
+        "path_length_m": 662.7992033927824,
+        "xy_rmse_m": 24.244727751213638,
+        "xy_rmse_over_path": 0.03657929524825626,
+        "yaw_rmse_rad": 0.07192215292767302
+      },
+      {
+        "episode_id": "t300_s006_sustained_turn_00013",
+        "family": "sustained_turn",
+        "path_length_m": 754.1453662670679,
+        "xy_rmse_m": 18.198334603040433,
+        "xy_rmse_over_path": 0.024131069972782675,
+        "yaw_rmse_rad": 0.05432478861305186
+      }
+    ]
+  },
+  "force23": {
+    "num_episodes": 20,
+    "xy_rmse_over_path_mean": 0.09477807624555869,
+    "xy_rmse_over_path_median": 0.07480551502148067,
+    "xy_rmse_over_path_min": 0.021354734705405127,
+    "xy_rmse_over_path_max": 0.20102266703314292,
+    "episodes": [
+      {
+        "episode_id": "t300_s093_chirp_steer_00024",
+        "family": "chirp_steer",
+        "path_length_m": 632.9683453387875,
+        "xy_rmse_m": 47.230699906648375,
+        "xy_rmse_over_path": 0.07461779132314872,
+        "yaw_rmse_rad": 0.12734087636548785
+      },
+      {
+        "episode_id": "t300_s113_chirp_steer_00003",
+        "family": "chirp_steer",
+        "path_length_m": 694.8089222313024,
+        "xy_rmse_m": 54.3834269691259,
+        "xy_rmse_over_path": 0.07827105442814336,
+        "yaw_rmse_rad": 0.15910476255207465
+      },
+      {
+        "episode_id": "t300_s010_doublet_steer_00014",
+        "family": "doublet_steer",
+        "path_length_m": 654.5893776615562,
+        "xy_rmse_m": 106.73785517126761,
+        "xy_rmse_over_path": 0.16306078102363358,
+        "yaw_rmse_rad": 0.41156894267491423
+      },
+      {
+        "episode_id": "t300_s106_doublet_steer_00005",
+        "family": "doublet_steer",
+        "path_length_m": 711.355866573959,
+        "xy_rmse_m": 63.481619510099144,
+        "xy_rmse_over_path": 0.08924031204780823,
+        "yaw_rmse_rad": 0.19291975156042276
+      },
+      {
+        "episode_id": "t300_s126_doublet_steer_00021",
+        "family": "doublet_steer",
+        "path_length_m": 729.3007622687819,
+        "xy_rmse_m": 127.48778280927549,
+        "xy_rmse_over_path": 0.1748082401733322,
+        "yaw_rmse_rad": 0.4661456237735668
+      },
+      {
+        "episode_id": "t300_s000_multi_steer_00025",
+        "family": "multi_steer",
+        "path_length_m": 500.2586694015691,
+        "xy_rmse_m": 64.16993278348903,
+        "xy_rmse_over_path": 0.12827350470557933,
+        "yaw_rmse_rad": 0.4528815503385059
+      },
+      {
+        "episode_id": "t300_s000_multi_steer_00042",
+        "family": "multi_steer",
+        "path_length_m": 305.34379026133894,
+        "xy_rmse_m": 7.167885462305632,
+        "xy_rmse_over_path": 0.02347480345406976,
+        "yaw_rmse_rad": 0.1322236188958147
+      },
+      {
+        "episode_id": "t300_s001_multi_steer_00038",
+        "family": "multi_steer",
+        "path_length_m": 594.793696823657,
+        "xy_rmse_m": 38.79618593326862,
+        "xy_rmse_over_path": 0.06522628962016526,
+        "yaw_rmse_rad": 0.19352575330290733
+      },
+      {
+        "episode_id": "t300_s024_multi_steer_00024",
+        "family": "multi_steer",
+        "path_length_m": 351.0474762609935,
+        "xy_rmse_m": 20.947446185847678,
+        "xy_rmse_over_path": 0.05967126272764846,
+        "yaw_rmse_rad": 0.3493038099501069
+      },
+      {
+        "episode_id": "t300_s050_multi_steer_00024",
+        "family": "multi_steer",
+        "path_length_m": 410.18002328928844,
+        "xy_rmse_m": 22.047524186491014,
+        "xy_rmse_over_path": 0.053750848248749344,
+        "yaw_rmse_rad": 0.15653701885146093
+      },
+      {
+        "episode_id": "t300_s057_multi_steer_00040",
+        "family": "multi_steer",
+        "path_length_m": 342.02074539232456,
+        "xy_rmse_m": 20.721927635046633,
+        "xy_rmse_over_path": 0.06058675654681987,
+        "yaw_rmse_rad": 0.16487369491358508
+      },
+      {
+        "episode_id": "t300_s059_multi_steer_00020",
+        "family": "multi_steer",
+        "path_length_m": 391.2303322013872,
+        "xy_rmse_m": 78.64616480338536,
+        "xy_rmse_over_path": 0.20102266703314292,
+        "yaw_rmse_rad": 0.7517884309419931
+      },
+      {
+        "episode_id": "t300_s082_multi_steer_00063",
+        "family": "multi_steer",
+        "path_length_m": 752.0558088647699,
+        "xy_rmse_m": 41.04474858881158,
+        "xy_rmse_over_path": 0.05457673234486245,
+        "yaw_rmse_rad": 0.3141499473518608
+      },
+      {
+        "episode_id": "t300_s110_multi_steer_00003",
+        "family": "multi_steer",
+        "path_length_m": 797.9650685928167,
+        "xy_rmse_m": 75.68977404201475,
+        "xy_rmse_over_path": 0.09485349299248275,
+        "yaw_rmse_rad": 0.28852775444938483
+      },
+      {
+        "episode_id": "t300_s003_sine_steer_00003",
+        "family": "sine_steer",
+        "path_length_m": 978.0039908446199,
+        "xy_rmse_m": 73.34368675434001,
+        "xy_rmse_over_path": 0.07499323871981262,
+        "yaw_rmse_rad": 0.12056478594135044
+      },
+      {
+        "episode_id": "t300_s007_sine_steer_00001",
+        "family": "sine_steer",
+        "path_length_m": 376.1674879614859,
+        "xy_rmse_m": 27.75484279955707,
+        "xy_rmse_over_path": 0.0737832047898801,
+        "yaw_rmse_rad": 0.10514505924092711
+      },
+      {
+        "episode_id": "t300_s014_sine_steer_00037",
+        "family": "sine_steer",
+        "path_length_m": 514.6001560241397,
+        "xy_rmse_m": 10.989149811255588,
+        "xy_rmse_over_path": 0.021354734705405127,
+        "yaw_rmse_rad": 0.05881116584618572
+      },
+      {
+        "episode_id": "t300_s046_sine_steer_00034",
+        "family": "sine_steer",
+        "path_length_m": 559.0371164442086,
+        "xy_rmse_m": 18.04802231877888,
+        "xy_rmse_over_path": 0.03228412172983162,
+        "yaw_rmse_rad": 0.07222976310244597
+      },
+      {
+        "episode_id": "t300_s081_steer_brake_00000",
+        "family": "steer_brake",
+        "path_length_m": 662.7992033927824,
+        "xy_rmse_m": 120.56236634907056,
+        "xy_rmse_over_path": 0.18189877979926286,
+        "yaw_rmse_rad": 0.45580507100457607
+      },
+      {
+        "episode_id": "t300_s006_sustained_turn_00013",
+        "family": "sustained_turn",
+        "path_length_m": 754.1453662670679,
+        "xy_rmse_m": 143.14652540098555,
+        "xy_rmse_over_path": 0.1898129084973952,
+        "yaw_rmse_rad": 0.5490600530301727
+      }
+    ]
+  },
+  "paired_normal15_minus_force23": {
+    "ratio_delta_mean": -0.06234783484486088,
+    "ratio_delta_median": -0.04068592792232091,
+    "normal_better_ratio_count": 20,
+    "force_better_ratio_count": 0
+  }
+}

@@ -1,0 +1,188 @@
+{
+  "policy_checkpoint": "/home/harry/NeDM/artifacts/rl_runs/hmmwv_rl_15d_5090_2048env_tmux_v2/model_500.pt",
+  "num_rollouts": 20,
+  "mean_xy_rmse_m": 0.4285218883305788,
+  "median_xy_rmse_m": 0.34171146154403687,
+  "rollouts": [
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.10914640873670578,
+      "xy_mean_m": 0.0955568179488182,
+      "xy_final_m": 0.1372988522052765,
+      "yaw_rmse_rad": 0.011839557439088821,
+      "reward_sum": 176.6131591796875,
+      "reference": "sustained_turn/t300_s039_sustained_turn_00015"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.3109046220779419,
+      "xy_mean_m": 0.23541845381259918,
+      "xy_final_m": 0.35061198472976685,
+      "yaw_rmse_rad": 0.014258818700909615,
+      "reward_sum": 169.67376708984375,
+      "reference": "sine_steer/t300_s109_sine_steer_00002"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.9803367853164673,
+      "xy_mean_m": 0.7429683208465576,
+      "xy_final_m": 0.28245827555656433,
+      "yaw_rmse_rad": 0.017097108066082,
+      "reward_sum": 138.48106384277344,
+      "reference": "doublet_steer/t300_s070_doublet_steer_00020"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.2760036885738373,
+      "xy_mean_m": 0.21932275593280792,
+      "xy_final_m": 0.5326812267303467,
+      "yaw_rmse_rad": 0.024164972826838493,
+      "reward_sum": 168.58279418945312,
+      "reference": "multi_steer/t300_s043_multi_steer_00021"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.11317414045333862,
+      "xy_mean_m": 0.09216145426034927,
+      "xy_final_m": 0.13893860578536987,
+      "yaw_rmse_rad": 0.013422849588096142,
+      "reward_sum": 170.7058563232422,
+      "reference": "chirp_steer/t300_s052_chirp_steer_00025"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.6280550360679626,
+      "xy_mean_m": 0.45184850692749023,
+      "xy_final_m": 1.0303858518600464,
+      "yaw_rmse_rad": 0.024646304547786713,
+      "reward_sum": 153.45724487304688,
+      "reference": "steer_brake/t300_s113_steer_brake_00012"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.29155343770980835,
+      "xy_mean_m": 0.215995654463768,
+      "xy_final_m": 0.1665627807378769,
+      "yaw_rmse_rad": 0.0082562156021595,
+      "reward_sum": 168.20904541015625,
+      "reference": "sustained_turn/t300_s019_sustained_turn_00036"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.28195878863334656,
+      "xy_mean_m": 0.21659189462661743,
+      "xy_final_m": 0.22456564009189606,
+      "yaw_rmse_rad": 0.01741354539990425,
+      "reward_sum": 165.22052001953125,
+      "reference": "sine_steer/t300_s013_sine_steer_00021"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.8294346332550049,
+      "xy_mean_m": 0.5845935344696045,
+      "xy_final_m": 0.5052956938743591,
+      "yaw_rmse_rad": 0.015396465547382832,
+      "reward_sum": 146.37448120117188,
+      "reference": "doublet_steer/t300_s053_doublet_steer_00013"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.3431573808193207,
+      "xy_mean_m": 0.2564410865306854,
+      "xy_final_m": 0.24171344935894012,
+      "yaw_rmse_rad": 0.014972466044127941,
+      "reward_sum": 165.61886596679688,
+      "reference": "multi_steer/t300_s045_multi_steer_00061"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.4103712737560272,
+      "xy_mean_m": 0.27111315727233887,
+      "xy_final_m": 1.3419198989868164,
+      "yaw_rmse_rad": 0.019694186747074127,
+      "reward_sum": 168.0360107421875,
+      "reference": "chirp_steer/t300_s022_chirp_steer_00008"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.22440557181835175,
+      "xy_mean_m": 0.18769827485084534,
+      "xy_final_m": 0.06822799891233444,
+      "yaw_rmse_rad": 0.01751535013318062,
+      "reward_sum": 170.2448272705078,
+      "reference": "steer_brake/t300_s017_steer_brake_00000"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.40267181396484375,
+      "xy_mean_m": 0.3293575644493103,
+      "xy_final_m": 0.7790058255195618,
+      "yaw_rmse_rad": 0.0189126618206501,
+      "reward_sum": 168.42388916015625,
+      "reference": "sustained_turn/t300_s065_sustained_turn_00014"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.6909741759300232,
+      "xy_mean_m": 0.48559820652008057,
+      "xy_final_m": 0.326447457075119,
+      "yaw_rmse_rad": 0.02301207184791565,
+      "reward_sum": 150.31471252441406,
+      "reference": "sine_steer/t300_s009_sine_steer_00014"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.34026554226875305,
+      "xy_mean_m": 0.2402782440185547,
+      "xy_final_m": 0.5088033080101013,
+      "yaw_rmse_rad": 0.01364599633961916,
+      "reward_sum": 168.9593505859375,
+      "reference": "doublet_steer/t300_s004_doublet_steer_00013"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.5148223638534546,
+      "xy_mean_m": 0.37402260303497314,
+      "xy_final_m": 0.3893211781978607,
+      "yaw_rmse_rad": 0.012135937809944153,
+      "reward_sum": 160.50686645507812,
+      "reference": "multi_steer/t300_s119_multi_steer_00053"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.36723655462265015,
+      "xy_mean_m": 0.2527002990245819,
+      "xy_final_m": 0.8135147094726562,
+      "yaw_rmse_rad": 0.01869547739624977,
+      "reward_sum": 168.63427734375,
+      "reference": "chirp_steer/t300_s070_chirp_steer_00002"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 1.0755350589752197,
+      "xy_mean_m": 0.8253882527351379,
+      "xy_final_m": 0.8500016331672668,
+      "yaw_rmse_rad": 0.0200261902064085,
+      "reward_sum": 128.80836486816406,
+      "reference": "steer_brake/t300_s111_steer_brake_00012"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.1378898322582245,
+      "xy_mean_m": 0.11244038492441177,
+      "xy_final_m": 0.3279692232608795,
+      "yaw_rmse_rad": 0.012487824074923992,
+      "reward_sum": 173.47970581054688,
+      "reference": "sustained_turn/t300_s021_sustained_turn_00046"
+    },
+    {
+      "steps": 180.0,
+      "xy_rmse_m": 0.2425406575202942,
+      "xy_mean_m": 0.20356187224388123,
+      "xy_final_m": 0.35746046900749207,
+      "yaw_rmse_rad": 0.015521240420639515,
+      "reward_sum": 173.02218627929688,
+      "reference": "sine_steer/t300_s089_sine_steer_00008"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "num_envs": 2048,
+  "device": "cuda",
+  "dynamics_checkpoint": "artifacts/training_runs/hmmwv_transformer_v07_tire_normal_force_omega_300g/checkpoints/best_val.pth",
+  "processed_dataset_dir": null,
+  "reference_path": "artifacts/rl_reference_sets/hmmwv_bumpy_10g_normal_force_omega_val_refs_20_1100_rest_start.npz",
+  "action_repeat": 5,
+  "obs_history_steps": 10,
+  "reference_preview_steps": 10,
+  "max_episode_steps": 180,
+  "auto_reset": true,
+  "action_low": [
+    -1.0,
+    0.0,
+    0.0
+  ],
+  "action_high": [
+    1.0,
+    1.0,
+    1.0
+  ],
+  "action_center": "dataset_mean",
+  "action_scale": [
+    1.0,
+    0.7,
+    0.5
+  ],
+  "steering_rate_limit": null,
+  "reward": {
+    "position_sigma_m": 2.0,
+    "yaw_sigma_rad": 0.35,
+    "state_sigma": 1.0,
+    "position_weight": 1.0,
+    "yaw_weight": 0.8,
+    "state_weight": 0.2,
+    "action_rate_weight": 0.02,
+    "throttle_brake_weight": 0.05
+  },
+  "termination": {
+    "max_position_error_m": 20.0,
+    "max_abs_roll_rad": 0.6,
+    "max_abs_pitch_rad": 0.4
+  },
+  "chrono_config": "configs/hmmwv_bumpy_eval.json"
+}
