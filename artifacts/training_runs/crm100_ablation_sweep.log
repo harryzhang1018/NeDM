@@ -1,0 +1,18 @@
+[2026-06-18T19:02:54-05:00] === START configs/hmmwv_transformer_v07_tnf_omega_300g_crm100_combnorm.json -> artifacts/training_runs/hmmwv_transformer_v07_tnf_omega_300g_crm100_combnorm ===
+scripts/run_crm100_ablation_sweep.sh: line 25: 3826103 Bus error               (core dumped) python scripts/train_hmmwv_dynamics.py --config "$cfg" --device cuda --output-dir "$out" "${resume[@]}" >> "$out/logs/run.log" 2>&1
+[2026-06-18T19:12:18-05:00] === FAILED configs/hmmwv_transformer_v07_tnf_omega_300g_crm100_combnorm.json (exit 135) — continuing to next ===
+[2026-06-18T19:12:18-05:00] === START configs/hmmwv_transformer_v07_tnf_omega_300g_crm100_crm40.json -> artifacts/training_runs/hmmwv_transformer_v07_tnf_omega_300g_crm100_crm40 ===
+[2026-06-18T20:18:24-05:00] === DONE  configs/hmmwv_transformer_v07_tnf_omega_300g_crm100_crm40.json (exit 0) ===
+[2026-06-18T20:18:24-05:00] === START configs/hmmwv_transformer_v07_tnf_omega_300g_crm100_vx3.json -> artifacts/training_runs/hmmwv_transformer_v07_tnf_omega_300g_crm100_vx3 ===
+[2026-06-18T21:24:20-05:00] === DONE  configs/hmmwv_transformer_v07_tnf_omega_300g_crm100_vx3.json (exit 0) ===
+[2026-06-18T21:24:20-05:00] ablation sweep complete
+[2026-06-18T21:32:12-05:00] === START configs/hmmwv_transformer_v07_tnf_omega_300g_crm100_combnorm.json -> artifacts/training_runs/hmmwv_transformer_v07_tnf_omega_300g_crm100_combnorm ===
+[2026-06-18T21:32:12-05:00] last.pt already exists for artifacts/training_runs/hmmwv_transformer_v07_tnf_omega_300g_crm100_combnorm; resuming
+[2026-06-18T22:30:00-05:00] === DONE  configs/hmmwv_transformer_v07_tnf_omega_300g_crm100_combnorm.json (exit 0) ===
+[2026-06-18T22:30:00-05:00] === START configs/hmmwv_transformer_v07_tnf_omega_300g_crm100_crm40.json -> artifacts/training_runs/hmmwv_transformer_v07_tnf_omega_300g_crm100_crm40 ===
+[2026-06-18T22:30:00-05:00] last.pt already exists for artifacts/training_runs/hmmwv_transformer_v07_tnf_omega_300g_crm100_crm40; resuming
+[2026-06-18T22:30:05-05:00] === DONE  configs/hmmwv_transformer_v07_tnf_omega_300g_crm100_crm40.json (exit 0) ===
+[2026-06-18T22:30:05-05:00] === START configs/hmmwv_transformer_v07_tnf_omega_300g_crm100_vx3.json -> artifacts/training_runs/hmmwv_transformer_v07_tnf_omega_300g_crm100_vx3 ===
+[2026-06-18T22:30:05-05:00] last.pt already exists for artifacts/training_runs/hmmwv_transformer_v07_tnf_omega_300g_crm100_vx3; resuming
+[2026-06-18T22:30:10-05:00] === DONE  configs/hmmwv_transformer_v07_tnf_omega_300g_crm100_vx3.json (exit 0) ===
+[2026-06-18T22:30:10-05:00] ablation sweep complete

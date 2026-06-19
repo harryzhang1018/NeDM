@@ -107,12 +107,88 @@ def infinite_loader(loader: DataLoader) -> Iterator[dict[str, torch.Tensor]]:
             yield batch
 
 
+def mixed_infinite_loader(loaders: list[DataLoader]) -> Iterator[dict[str, torch.Tensor]]:
+    iterators = [infinite_loader(loader) for loader in loaders]
+    while True:
+        batches = [next(iterator) for iterator in iterators]
+        if len(batches) == 1:
+            yield batches[0]
+            continue
+        keys = batches[0].keys()
+        merged = {
+            key: torch.cat([batch[key] for batch in batches], dim=0)
+            for key in keys
+        }
+        yield merged
+
+
 def move_batch(batch: dict[str, torch.Tensor], device: torch.device) -> dict[str, torch.Tensor]:
     return {key: value.to(device, non_blocking=True) for key, value in batch.items()}
 
 
 def wrap_angle(angle: torch.Tensor) -> torch.Tensor:
     return torch.atan2(torch.sin(angle), torch.cos(angle))
+
+
+def metric_suffix(name: str) -> str:
+    suffix = "".join(character if character.isalnum() else "_" for character in name.lower())
+    return suffix.strip("_") or "dataset"
+
+
+def allocate_batch_sizes(batch_size: int, fractions: list[float]) -> list[int]:
+    if batch_size <= 0:
+        raise ValueError(f"batch_size must be positive, got {batch_size}")
+    if not fractions:
+        raise ValueError("at least one training dataset is required")
+    if any(fraction < 0.0 for fraction in fractions):
+        raise ValueError(f"train batch fractions must be non-negative, got {fractions}")
+    if sum(fractions) <= 0.0:
+        raise ValueError("at least one train batch fraction must be positive")
+
+    normalized = [fraction / sum(fractions) for fraction in fractions]
+    exact_counts = [batch_size * fraction for fraction in normalized]
+    counts = [int(math.floor(count)) for count in exact_counts]
+    remainder = batch_size - sum(counts)
+    order = sorted(
+        range(len(counts)),
+        key=lambda index: exact_counts[index] - counts[index],
+        reverse=True,
+    )
+    for index in order[:remainder]:
+        counts[index] += 1
+
+    positive_indices = [index for index, fraction in enumerate(fractions) if fraction > 0.0]
+    if len(positive_indices) > batch_size:
+        raise ValueError(
+            f"batch_size={batch_size} is too small for {len(positive_indices)} positive train sources"
+        )
+    for index in positive_indices:
+        if counts[index] > 0:
+            continue
+        donor = max(
+            (candidate for candidate in positive_indices if counts[candidate] > 1),
+            key=lambda candidate: counts[candidate],
+            default=None,
+        )
+        if donor is None:
+            raise ValueError(f"could not allocate positive batch count for train source {index}")
+        counts[donor] -= 1
+        counts[index] = 1
+    return counts
+
+
+def validate_compatible_metadata(
+    reference: dict[str, Any],
+    candidate: dict[str, Any],
+    candidate_root: Path,
+) -> None:
+    for key in ("state_fields", "action_fields", "rollout_fields"):
+        if list(candidate.get(key, [])) != list(reference.get(key, [])):
+            raise ValueError(f"{candidate_root} has incompatible {key}")
+    if abs(float(candidate["dt_s"]) - float(reference["dt_s"])) > 1e-12:
+        raise ValueError(
+            f"{candidate_root} has dt_s={candidate['dt_s']}, expected {reference['dt_s']}"
+        )
 
 
 def build_optimizer(model: HMMWVDynamicsModel, optimizer_cfg: dict[str, Any]) -> torch.optim.Optimizer:
@@ -150,6 +226,16 @@ class HMMWVTrainer:
             for field_index, field_name in enumerate(self.metadata["state_fields"])
         }
 
+        # Optional: override the model's input/output normalization with an
+        # equal-domain-combined (flat+CRM) normalization, so CRM inputs are not
+        # left off-center by flat-only stats. Pooled equal-weight per domain:
+        # combined_var = mean_d(std_d^2 + (mean_d - combined_mean)^2). This is
+        # baked into self.metadata so it is also saved in the checkpoint.
+        model_norm_cfg = config.get("model_normalization")
+        if model_norm_cfg and model_norm_cfg.get("mode") == "equal_domain_combined":
+            self.metadata["normalization"] = self._equal_domain_normalization(model_norm_cfg["datasets"])
+            print(f"model_normalization: equal_domain_combined over {model_norm_cfg['datasets']}")
+
         training_cfg = config["training"]
         self.sequence_length = int(config["model"]["block_size"])
         self.device = resolve_device(training_cfg.get("device", "auto"))
@@ -157,14 +243,68 @@ class HMMWVTrainer:
         load_dataset_into_memory = bool(training_cfg.get("load_dataset_into_memory", False))
         seed_everything(self.seed)
 
-        self.train_dataset = WindowedHMMWVDataset(
-            self.processed_root,
-            split="train",
-            sequence_length=self.sequence_length,
-            max_windows=training_cfg.get("max_train_windows"),
-            seed=self.seed,
-            load_into_memory=load_dataset_into_memory,
-        )
+        batch_size = int(training_cfg["batch_size"])
+        self.num_epochs = int(training_cfg["num_epochs"])
+        self.steps_per_epoch = int(training_cfg["steps_per_epoch"])
+        self.max_val_batches = int(training_cfg["max_val_batches"])
+        num_workers = int(training_cfg.get("num_workers", 0))
+        pin_memory = bool(training_cfg.get("pin_memory", self.device.type == "cuda"))
+
+        train_mix_cfg = config.get("train_mix", {})
+        train_specs = list(train_mix_cfg.get("datasets", []))
+        if not train_specs:
+            train_specs = [
+                {
+                    "name": config.get("validation_dataset_name", "primary"),
+                    "processed_dataset_dir": str(self.processed_root),
+                    "batch_fraction": 1.0,
+                }
+            ]
+        batch_fractions = [float(spec.get("batch_fraction", spec.get("fraction", 1.0))) for spec in train_specs]
+        batch_counts = allocate_batch_sizes(batch_size, batch_fractions)
+
+        self.train_loaders: list[DataLoader] = []
+        self.train_source_batch_sizes: dict[str, int] = {}
+        self.train_dataset: WindowedHMMWVDataset | None = None
+        for source_index, (spec, source_batch_size) in enumerate(zip(train_specs, batch_counts, strict=True)):
+            if source_batch_size <= 0:
+                continue
+            source_name = str(spec.get("name", f"source_{source_index}"))
+            source_root = Path(spec.get("processed_dataset_dir", self.processed_root)).resolve()
+            source_metadata = load_metadata(source_root)
+            validate_compatible_metadata(self.metadata, source_metadata, source_root)
+            max_train_windows = spec.get("max_train_windows")
+            if max_train_windows is None and source_root == self.processed_root:
+                max_train_windows = training_cfg.get("max_train_windows")
+            source_dataset = WindowedHMMWVDataset(
+                source_root,
+                split="train",
+                sequence_length=self.sequence_length,
+                max_windows=max_train_windows,
+                seed=self.seed + source_index,
+                load_into_memory=bool(spec.get("load_dataset_into_memory", load_dataset_into_memory)),
+            )
+            if self.train_dataset is None:
+                self.train_dataset = source_dataset
+            train_sampler = RandomSampler(
+                source_dataset,
+                replacement=True,
+                num_samples=self.steps_per_epoch * source_batch_size,
+            )
+            self.train_loaders.append(
+                DataLoader(
+                    source_dataset,
+                    batch_size=source_batch_size,
+                    sampler=train_sampler,
+                    drop_last=True,
+                    num_workers=num_workers,
+                    pin_memory=pin_memory,
+                )
+            )
+            self.train_source_batch_sizes[source_name] = source_batch_size
+        if not self.train_loaders or self.train_dataset is None:
+            raise ValueError("no training loaders were configured")
+
         self.val_dataset = WindowedHMMWVDataset(
             self.processed_root,
             split="val",
@@ -172,25 +312,6 @@ class HMMWVTrainer:
             max_windows=training_cfg.get("max_val_windows"),
             seed=self.seed + 1,
             load_into_memory=load_dataset_into_memory,
-        )
-
-        batch_size = int(training_cfg["batch_size"])
-        self.num_epochs = int(training_cfg["num_epochs"])
-        self.steps_per_epoch = int(training_cfg["steps_per_epoch"])
-        num_workers = int(training_cfg.get("num_workers", 0))
-        pin_memory = bool(training_cfg.get("pin_memory", self.device.type == "cuda"))
-        train_sampler = RandomSampler(
-            self.train_dataset,
-            replacement=True,
-            num_samples=self.steps_per_epoch * batch_size,
-        )
-        self.train_loader = DataLoader(
-            self.train_dataset,
-            batch_size=batch_size,
-            sampler=train_sampler,
-            drop_last=True,
-            num_workers=num_workers,
-            pin_memory=pin_memory,
         )
         self.val_loader = DataLoader(
             self.val_dataset,
@@ -200,6 +321,36 @@ class HMMWVTrainer:
             num_workers=num_workers,
             pin_memory=pin_memory,
         )
+        self.validation_dataset_name = metric_suffix(str(config.get("validation_dataset_name", "primary")))
+        self.extra_val_loaders: list[dict[str, Any]] = []
+        for source_index, spec in enumerate(config.get("validation_datasets", [])):
+            source_name = metric_suffix(str(spec.get("name", f"extra_{source_index}")))
+            source_root = Path(spec["processed_dataset_dir"]).resolve()
+            source_metadata = load_metadata(source_root)
+            validate_compatible_metadata(self.metadata, source_metadata, source_root)
+            source_dataset = WindowedHMMWVDataset(
+                source_root,
+                split=str(spec.get("split", "val")),
+                sequence_length=self.sequence_length,
+                max_windows=spec.get("max_val_windows"),
+                seed=int(spec.get("seed", self.seed + 100 + source_index)),
+                load_into_memory=bool(spec.get("load_dataset_into_memory", load_dataset_into_memory)),
+            )
+            source_loader = DataLoader(
+                source_dataset,
+                batch_size=int(spec.get("batch_size", batch_size)),
+                shuffle=False,
+                drop_last=False,
+                num_workers=int(spec.get("num_workers", num_workers)),
+                pin_memory=bool(spec.get("pin_memory", pin_memory)),
+            )
+            self.extra_val_loaders.append(
+                {
+                    "name": source_name,
+                    "loader": source_loader,
+                    "max_batches": int(spec.get("max_val_batches", self.max_val_batches)),
+                }
+            )
 
         normalization = self.metadata["normalization"]
         self.model = HMMWVDynamicsModel(
@@ -214,9 +365,28 @@ class HMMWVTrainer:
             self.model = torch.compile(self.model)
 
         self.optimizer = build_optimizer(self.model, config["optimizer"])
-        self.max_val_batches = int(training_cfg["max_val_batches"])
         self.grad_clip_norm = float(config["optimizer"].get("grad_clip_norm", 1.0))
         self.rollout_eval = config.get("rollout_eval", {})
+        self.validation_loss_weights = {
+            metric_suffix(str(name)): float(weight)
+            for name, weight in config.get("validation_loss_weights", {}).items()
+        }
+
+        # Loss configuration: per-channel weights (to stop a single channel such
+        # as CRM normal-force from dominating the flat-normalized MSE) plus an
+        # optional robust (Huber) loss. Defaults reproduce plain MSE.
+        loss_cfg = config.get("loss", {})
+        self.loss_type = str(loss_cfg.get("type", "mse")).lower()
+        self.huber_delta = float(loss_cfg.get("huber_delta", 1.0))
+        self.channel_weights = self._build_channel_weights(loss_cfg)
+        if self.channel_weights is not None:
+            named = {
+                field: round(float(weight), 5)
+                for field, weight in zip(self.metadata["state_fields"], self.channel_weights.tolist(), strict=True)
+            }
+            print(f"loss: type={self.loss_type} huber_delta={self.huber_delta} channel_weights={named}")
+
+        self.checkpoint_metric = str(training_cfg.get("checkpoint_metric", "val_loss"))
         self.metrics_path = self.output_dir / "metrics.jsonl"
         self.best_val_loss = float("inf")
         self.global_step = 0
@@ -240,6 +410,67 @@ class HMMWVTrainer:
         cosine = 0.5 * (1.0 + math.cos(math.pi * progress))
         return min_lr + cosine * (max_lr - min_lr)
 
+    def _equal_domain_normalization(self, dataset_dirs: list[str]) -> dict[str, list[float]]:
+        metas = []
+        for dataset_dir in dataset_dirs:
+            source_meta = load_metadata(Path(dataset_dir).resolve())
+            validate_compatible_metadata(self.metadata, source_meta, Path(dataset_dir))
+            metas.append(source_meta["normalization"])
+        out: dict[str, list[float]] = {}
+        for mean_key, std_key in (("state_mean", "state_std"), ("action_mean", "action_std"), ("target_mean", "target_std")):
+            means = np.stack([np.asarray(m[mean_key], dtype=np.float64) for m in metas], axis=0)
+            stds = np.stack([np.asarray(m[std_key], dtype=np.float64) for m in metas], axis=0)
+            combined_mean = means.mean(axis=0)
+            combined_var = (stds ** 2 + (means - combined_mean) ** 2).mean(axis=0)
+            out[mean_key] = combined_mean.tolist()
+            out[std_key] = np.sqrt(np.maximum(combined_var, 1e-12)).tolist()
+        return out
+
+    def _build_channel_weights(self, loss_cfg: dict[str, Any]) -> torch.Tensor | None:
+        """Per-channel loss weights, mean-normalized to 1.
+
+        The training/validation loss is computed in the model's (flat) normalized
+        target space. A channel whose delta scale differs wildly across domains
+        (e.g. CRM normal-force, ~30x the flat per-step std) otherwise dominates the
+        MSE by ~900x. ``equal_domain_combined_std`` reweights each channel so the
+        residual is effectively normalized by the equal-domain-combined std
+        (scale_i^2 = mean_d std_{d,i}^2) instead of the flat-only std:
+        w_i = flat_std_i^2 / scale_i^2.
+        """
+        fields = self.metadata["state_fields"]
+        explicit = loss_cfg.get("channel_weights")
+        if explicit is not None:
+            weights = np.asarray([float(explicit.get(field, 1.0)) for field in fields], dtype=np.float64)
+        elif loss_cfg.get("channel_weight_mode") == "equal_domain_combined_std":
+            dataset_dirs = loss_cfg["channel_weight_datasets"]
+            stds = []
+            for dataset_dir in dataset_dirs:
+                source_meta = load_metadata(Path(dataset_dir).resolve())
+                validate_compatible_metadata(self.metadata, source_meta, Path(dataset_dir))
+                stds.append(np.asarray(source_meta["normalization"]["target_std"], dtype=np.float64))
+            scale_sq = (np.stack(stds, axis=0) ** 2).mean(axis=0)
+            flat_std = np.asarray(self.metadata["normalization"]["target_std"], dtype=np.float64)
+            weights = (flat_std ** 2) / np.maximum(scale_sq, 1e-12)
+        else:
+            return None
+        # Optional multiplicative emphasis on specific channels (e.g. upweight vx),
+        # applied on top of the scale rebalancing, before mean-normalization.
+        for field, factor in loss_cfg.get("channel_weight_overrides", {}).items():
+            if field in fields:
+                weights[fields.index(field)] *= float(factor)
+        weights = weights * (weights.size / max(weights.sum(), 1e-12))  # mean-normalize to 1
+        return torch.tensor(weights, dtype=torch.float32, device=self.device)
+
+    def _compute_loss(self, prediction_norm: torch.Tensor, target_norm: torch.Tensor) -> torch.Tensor:
+        residual = prediction_norm - target_norm
+        if self.channel_weights is not None:
+            residual = residual * torch.sqrt(self.channel_weights)
+        if self.loss_type == "huber":
+            return torch.nn.functional.huber_loss(
+                residual, torch.zeros_like(residual), delta=self.huber_delta, reduction="mean"
+            )
+        return residual.pow(2).mean()
+
     def training_step(self, batch: dict[str, torch.Tensor]) -> float:
         batch = move_batch(batch, self.device)
         lr = self.scheduled_lr()
@@ -248,7 +479,7 @@ class HMMWVTrainer:
         self.optimizer.zero_grad(set_to_none=True)
         prediction_norm = self.model(batch["states"], batch["actions"])
         target_norm = self.model.normalize_target(batch["targets"])
-        loss = torch.nn.functional.mse_loss(prediction_norm, target_norm)
+        loss = self._compute_loss(prediction_norm, target_norm)
         loss.backward()
         clip_grad_norm_(self.model.parameters(), self.grad_clip_norm)
         self.optimizer.step()
@@ -256,20 +487,19 @@ class HMMWVTrainer:
         return float(loss.item())
 
     @torch.no_grad()
-    def evaluate_windows(self) -> dict[str, Any]:
-        self.model.eval()
+    def _evaluate_window_loader(self, loader: DataLoader, max_batches: int) -> dict[str, Any]:
         total_loss = 0.0
         total_batches = 0
         total_tokens = 0
         state_sq_error = torch.zeros(len(self.metadata["state_fields"]), dtype=torch.float64)
 
-        for batch_index, batch in enumerate(self.val_loader):
-            if batch_index >= self.max_val_batches:
+        for batch_index, batch in enumerate(loader):
+            if batch_index >= max_batches:
                 break
             batch = move_batch(batch, self.device)
             prediction_norm = self.model(batch["states"], batch["actions"])
             target_norm = self.model.normalize_target(batch["targets"])
-            loss = torch.nn.functional.mse_loss(prediction_norm, target_norm)
+            loss = self._compute_loss(prediction_norm, target_norm)
             total_loss += float(loss.item())
             total_batches += 1
 
@@ -279,13 +509,41 @@ class HMMWVTrainer:
             total_tokens += diff.shape[0] * diff.shape[1]
 
         rmse = torch.sqrt(state_sq_error / max(total_tokens, 1))
-        metrics = {
-            "val_loss": total_loss / max(total_batches, 1),
-            "val_rmse": {
+        return {
+            "loss": total_loss / max(total_batches, 1),
+            "rmse": {
                 field: float(value)
                 for field, value in zip(self.metadata["state_fields"], rmse.tolist(), strict=True)
             },
         }
+
+    @torch.no_grad()
+    def evaluate_windows(self) -> dict[str, Any]:
+        self.model.eval()
+        primary_metrics = self._evaluate_window_loader(self.val_loader, self.max_val_batches)
+        metrics = {
+            "val_loss": primary_metrics["loss"],
+            "val_rmse": primary_metrics["rmse"],
+            f"val_{self.validation_dataset_name}_loss": primary_metrics["loss"],
+            f"val_{self.validation_dataset_name}_rmse": primary_metrics["rmse"],
+        }
+        for source in self.extra_val_loaders:
+            source_metrics = self._evaluate_window_loader(source["loader"], source["max_batches"])
+            metrics[f"val_{source['name']}_loss"] = source_metrics["loss"]
+            metrics[f"val_{source['name']}_rmse"] = source_metrics["rmse"]
+
+        if self.validation_loss_weights:
+            weighted_loss = 0.0
+            total_weight = 0.0
+            for name, weight in self.validation_loss_weights.items():
+                metric_name = f"val_{name}_loss"
+                if metric_name not in metrics:
+                    raise KeyError(
+                        f"validation loss weight references {name!r}, but {metric_name} was not computed"
+                    )
+                weighted_loss += weight * float(metrics[metric_name])
+                total_weight += weight
+            metrics["val_mixed_loss"] = weighted_loss / max(total_weight, 1e-12)
         return metrics
 
     @torch.no_grad()
@@ -294,44 +552,73 @@ class HMMWVTrainer:
         if not rollout_cfg:
             return {}
 
-        split_data = load_rollout_split(self.processed_root, "val")
-        selected_episodes = self._select_rollout_episodes(
-            split_data["episodes"],
-            max_episodes=int(rollout_cfg.get("num_episodes", 24)),
-        )
+        # Domains to roll out. Legacy configs (no "datasets") roll out the primary
+        # processed_root only; multi-domain configs list flat + CRM (+ bumpy) so we
+        # can select on a combined, distance-normalized open-loop error.
+        domains = rollout_cfg.get("datasets")
+        if not domains:
+            domains = [
+                {
+                    "name": self.validation_dataset_name,
+                    "processed_dataset_dir": str(self.processed_root),
+                    "weight": 1.0,
+                }
+            ]
         horizons_s = [float(value) for value in rollout_cfg.get("horizons_s", [1.0, 2.0, 5.0])]
         horizons_steps = [max(1, int(round(horizon / self.dt_s))) for horizon in horizons_s]
+        num_episodes = int(rollout_cfg.get("num_episodes", 24))
+        selection_horizon_s = float(rollout_cfg.get("selection_horizon_s", horizons_s[-1]))
 
         metrics: dict[str, Any] = {}
+        selection_terms: list[float] = []
+        selection_weight = 0.0
         self.model.eval()
-        for horizon_s, horizon_steps in zip(horizons_s, horizons_steps, strict=True):
-            state_sq_error = torch.zeros(len(self.metadata["state_fields"]), dtype=torch.float64)
-            pos_sq_error = 0.0
-            yaw_sq_error = 0.0
-            count = 0
+        for domain in domains:
+            name = metric_suffix(str(domain.get("name", "rollout")))
+            domain_root = Path(domain["processed_dataset_dir"]).resolve()
+            weight = float(domain.get("weight", 1.0))
+            split_data = load_rollout_split(domain_root, str(domain.get("split", "val")))
+            selected_episodes = self._select_rollout_episodes(split_data["episodes"], num_episodes)
 
-            for episode in selected_episodes:
-                result = self._rollout_episode(episode, horizon_steps)
-                if result is None:
+            for horizon_s, horizon_steps in zip(horizons_s, horizons_steps, strict=True):
+                pos_sq_error = 0.0
+                yaw_sq_error = 0.0
+                count = 0
+                gt_distance = 0.0
+                episode_count = 0
+                for episode in selected_episodes:
+                    result = self._rollout_episode(episode, horizon_steps)
+                    if result is None:
+                        continue
+                    predicted_states, predicted_pose, _, gt_pose = result
+                    pos_sq_error += ((predicted_pose[:, :2] - gt_pose[:, :2]).pow(2).sum(dim=-1)).sum().item()
+                    yaw_sq_error += wrap_angle(predicted_pose[:, 2] - gt_pose[:, 2]).pow(2).sum().item()
+                    count += predicted_states.shape[0]
+                    gt_xy = gt_pose[:, :2]
+                    if gt_xy.shape[0] >= 2:
+                        gt_distance += (gt_xy[1:] - gt_xy[:-1]).pow(2).sum(dim=-1).sqrt().sum().item()
+                    episode_count += 1
+
+                if count == 0:
                     continue
-                predicted_states, predicted_pose, gt_states, gt_pose = result
-                state_sq_error += (predicted_states - gt_states).pow(2).sum(dim=0).cpu().double()
-                pos_sq_error += ((predicted_pose[:, :2] - gt_pose[:, :2]).pow(2).sum(dim=-1)).sum().item()
-                yaw_sq_error += wrap_angle(predicted_pose[:, 2] - gt_pose[:, 2]).pow(2).sum().item()
-                count += predicted_states.shape[0]
+                xy_rmse = math.sqrt(pos_sq_error / count)
+                mean_distance = gt_distance / max(episode_count, 1)
+                # distance-normalized error: the honest cross-domain comparison,
+                # since CRM episodes are short/slow relative to flat.
+                errdist = xy_rmse / mean_distance if mean_distance > 1e-6 else float("nan")
+                metrics[f"rollout_{name}_{horizon_s:.1f}s"] = {
+                    "xy_rmse_m": xy_rmse,
+                    "yaw_rmse_rad": math.sqrt(yaw_sq_error / count),
+                    "errdist": errdist,
+                    "mean_dist_m": mean_distance,
+                    "episodes": episode_count,
+                }
+                if abs(horizon_s - selection_horizon_s) < 1e-9 and math.isfinite(errdist):
+                    selection_terms.append(weight * errdist)
+                    selection_weight += weight
 
-            if count == 0:
-                continue
-            state_rmse = torch.sqrt(state_sq_error / count)
-            metrics[f"rollout_{horizon_s:.1f}s"] = {
-                "state_rmse": {
-                    field: float(value)
-                    for field, value in zip(self.metadata["state_fields"], state_rmse.tolist(), strict=True)
-                },
-                "xy_rmse_m": float(math.sqrt(pos_sq_error / count)),
-                "yaw_rmse_rad": float(math.sqrt(yaw_sq_error / count)),
-                "episodes": len(selected_episodes),
-            }
+        if selection_weight > 0.0:
+            metrics["rollout_sel"] = sum(selection_terms) / selection_weight
         return metrics
 
     def _select_rollout_episodes(self, episodes: list[dict[str, Any]], max_episodes: int) -> list[dict[str, Any]]:
@@ -446,17 +733,25 @@ class HMMWVTrainer:
                 if line.strip()
             ]
             if records:
-                self.best_val_loss = min(float(record["val_loss"]) for record in records)
-        elif checkpoint.get("metrics") and "val_loss" in checkpoint["metrics"]:
-            self.best_val_loss = float(checkpoint["metrics"]["val_loss"])
-        print(f"resumed from {checkpoint_path} at epoch {self.start_epoch}, global_step {self.global_step}")
+                self.best_val_loss = min(
+                    float(record.get(self.checkpoint_metric, record["val_loss"]))
+                    for record in records
+                )
+        elif checkpoint.get("metrics"):
+            metrics = checkpoint["metrics"]
+            if self.checkpoint_metric in metrics or "val_loss" in metrics:
+                self.best_val_loss = float(metrics.get(self.checkpoint_metric, metrics["val_loss"]))
+        print(
+            f"resumed from {checkpoint_path} at epoch {self.start_epoch}, "
+            f"global_step {self.global_step}, best {self.checkpoint_metric}={self.best_val_loss}"
+        )
 
     def log_metrics(self, record: dict[str, Any]) -> None:
         with self.metrics_path.open("a") as fp:
             fp.write(json.dumps(record) + "\n")
 
     def train(self) -> Path:
-        train_iterator = infinite_loader(self.train_loader)
+        train_iterator = mixed_infinite_loader(self.train_loaders)
         last_checkpoint = self.checkpoint_dir / "last.pt"
         if self.start_epoch >= self.num_epochs:
             print(f"training already reached epoch {self.start_epoch}; target is {self.num_epochs}")
@@ -481,8 +776,11 @@ class HMMWVTrainer:
             }
             self.log_metrics(record)
             self.save_checkpoint("last", epoch, record)
-            if record["val_loss"] < self.best_val_loss:
-                self.best_val_loss = record["val_loss"]
+            if self.checkpoint_metric not in record:
+                raise KeyError(f"checkpoint metric {self.checkpoint_metric!r} was not logged")
+            checkpoint_value = float(record[self.checkpoint_metric])
+            if checkpoint_value < self.best_val_loss:
+                self.best_val_loss = checkpoint_value
                 self.save_checkpoint("best_val", epoch, record)
             print(json.dumps(record, indent=2))
         return last_checkpoint

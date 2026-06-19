@@ -1,0 +1,100 @@
+{
+  "processed_dataset_dir": "artifacts/training_datasets/hmmwv_tire_rigid_300g_normal_force_omega_seq_v1",
+  "output_dir": "artifacts/training_runs/hmmwv_transformer_v07_tnf_omega_300g_crm100_crm40",
+  "validation_dataset_name": "flat",
+  "train_mix": {
+    "datasets": [
+      {
+        "name": "flat",
+        "processed_dataset_dir": "artifacts/training_datasets/hmmwv_tire_rigid_300g_normal_force_omega_seq_v1",
+        "batch_fraction": 0.6
+      },
+      {
+        "name": "crm",
+        "processed_dataset_dir": "artifacts/training_datasets/hmmwv_crm_100_normal_force_omega_seq_v1",
+        "batch_fraction": 0.4
+      }
+    ]
+  },
+  "validation_datasets": [
+    {
+      "name": "crm",
+      "processed_dataset_dir": "artifacts/training_datasets/hmmwv_crm_100_normal_force_omega_seq_v1",
+      "split": "val",
+      "max_val_batches": 200
+    }
+  ],
+  "validation_loss_weights": {
+    "flat": 0.5,
+    "crm": 0.5
+  },
+  "loss": {
+    "type": "huber",
+    "huber_delta": 1.0,
+    "channel_weight_mode": "equal_domain_combined_std",
+    "channel_weight_datasets": [
+      "artifacts/training_datasets/hmmwv_tire_rigid_300g_normal_force_omega_seq_v1",
+      "artifacts/training_datasets/hmmwv_crm_100_normal_force_omega_seq_v1"
+    ]
+  },
+  "rollout_eval": {
+    "num_episodes": 12,
+    "horizons_s": [
+      5.0,
+      10.0
+    ],
+    "selection_horizon_s": 10.0,
+    "datasets": [
+      {
+        "name": "flat",
+        "processed_dataset_dir": "artifacts/training_datasets/hmmwv_tire_rigid_300g_normal_force_omega_seq_v1",
+        "split": "val",
+        "weight": 0.5
+      },
+      {
+        "name": "crm",
+        "processed_dataset_dir": "artifacts/training_datasets/hmmwv_crm_100_normal_force_omega_seq_v1",
+        "split": "val",
+        "weight": 0.5
+      }
+    ]
+  },
+  "model": {
+    "block_size": 128,
+    "n_layer": 6,
+    "n_head": 8,
+    "n_embd": 256,
+    "dropout": 0.0,
+    "bias": false,
+    "head_hidden_dim": 256
+  },
+  "optimizer": {
+    "lr": 0.0003,
+    "min_lr": 3e-05,
+    "weight_decay": 0.1,
+    "betas": [
+      0.9,
+      0.95
+    ],
+    "warmup_steps": 1000,
+    "grad_clip_norm": 1.0
+  },
+  "training": {
+    "seed": 2026061801,
+    "device": "cuda",
+    "batch_size": 64,
+    "num_workers": 0,
+    "num_epochs": 80,
+    "steps_per_epoch": 2000,
+    "max_val_batches": 200,
+    "checkpoint_metric": "rollout_sel",
+    "load_dataset_into_memory": true,
+    "pin_memory": false,
+    "compile": false
+  },
+  "sweep_recipe": {
+    "version": "hmmwv_transformer_v07_tnf_omega_300g_crm100_crm40",
+    "slug": "crm40",
+    "notes": "Ablation off ...crm100_mix25_rebal_rollout (flat 15.4%/CRM 9.4% @ep80). Change 2: batch mix 60% flat / 40% CRM (vs 75/25). Tests whether more CRM influence improves CRM (risk: tiny ~96k-row CRM set -> overfit)."
+  }
+}
