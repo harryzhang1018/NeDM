@@ -105,6 +105,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--action-repeat", type=int, default=5)
     parser.add_argument(
+        "--dynamics-context-steps",
+        type=int,
+        default=None,
+        help="Trailing history tokens fed to the dynamics model each substep "
+        "(<= model block_size). None uses the full model context. Smaller is much "
+        "faster with near-identical rollout accuracy since the dynamics is ~Markovian.",
+    )
+    parser.add_argument(
         "--steering-rate-limit",
         type=float,
         default=None,
@@ -182,6 +190,9 @@ def get_env_cfg(args: argparse.Namespace) -> dict[str, Any]:
             "dynamics_checkpoint": str(args.dynamics_checkpoint),
             "processed_dataset_dir": str(args.processed_dataset_dir) if args.processed_dataset_dir else None,
             "reference_path": str(args.reference_path),
+            "dynamics_context_steps": int(args.dynamics_context_steps)
+            if args.dynamics_context_steps is not None
+            else None,
             "action_repeat": int(args.action_repeat),
             "steering_rate_limit": args.steering_rate_limit,
             "obs_history_steps": int(args.obs_history_steps),

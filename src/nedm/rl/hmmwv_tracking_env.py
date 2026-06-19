@@ -23,6 +23,7 @@ def default_env_cfg() -> dict[str, Any]:
         "dynamics_checkpoint": str(DEFAULT_RL_DYNAMICS_CHECKPOINT),
         "processed_dataset_dir": None,
         "reference_path": str(DEFAULT_RL_REFERENCE_PATH),
+        "dynamics_context_steps": None,
         "action_repeat": 5,
         "obs_history_steps": 10,
         "reference_preview_steps": 10,
@@ -99,6 +100,20 @@ class HMMWVNeuralTrackingEnv(VecEnv):
             raise ValueError(
                 f"obs_history_steps={self.obs_history_steps} exceeds dynamics context {self.context_steps}"
             )
+        # Number of trailing history tokens actually fed to the dynamics model each
+        # substep. The model is trained with block_size=context_steps, but the
+        # dynamics is near-Markovian, so a short window gives the same rollout
+        # accuracy at a fraction of the transformer compute. None => full context.
+        dynamics_context_cfg = self.cfg.get("dynamics_context_steps")
+        if dynamics_context_cfg is None:
+            self.dynamics_context_steps = self.context_steps
+        else:
+            self.dynamics_context_steps = int(dynamics_context_cfg)
+            if not 1 <= self.dynamics_context_steps <= self.context_steps:
+                raise ValueError(
+                    f"dynamics_context_steps={self.dynamics_context_steps} must be in "
+                    f"[1, {self.context_steps}]"
+                )
 
         self.state_fields = list(self.metadata["state_fields"])
         self.action_fields = list(self.metadata["action_fields"])
@@ -290,7 +305,8 @@ class HMMWVNeuralTrackingEnv(VecEnv):
 
     def _nn_substep(self, driver_actions: torch.Tensor) -> None:
         self.action_hist[:, -1, :] = driver_actions
-        delta = self.model.predict_next_delta(self.state_hist, self.action_hist)
+        k = self.dynamics_context_steps
+        delta = self.model.predict_next_delta(self.state_hist[:, -k:, :], self.action_hist[:, -k:, :])
         next_state = self.state_hist[:, -1, :] + delta
         self.pose = self._integrate_pose(self.pose, next_state)
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "HMMWV NN Model Training"
+  short_description: "Launch and monitor HMMWV NN training"
+  default_prompt: "Use $hmmwv-nn-model-training to launch, resume, monitor, or diagnose HMMWV neural dynamics training."

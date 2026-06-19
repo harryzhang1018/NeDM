@@ -1,0 +1,363 @@
+[2026-06-10T04:19:41.906363+00:00] train d050_v07_050g: archived interrupted run to /home/harry/NeDM/artifacts/training_runs/hmmwv_transformer_d050_v07_050g_interrupted_20260610T041941Z
+[2026-06-10T04:19:41.906417+00:00] train d050_v07_050g: /home/harry/anaconda3/envs/tutorial/bin/python scripts/train_hmmwv_dynamics.py --config /home/harry/NeDM/artifacts/training_runs/hmmwv_sweep_v07_data_scaling/configs/d050_v07_050g.json --device cuda
+{
+  "epoch": 1,
+  "timestamp_utc": "2026-06-10T04:20:13.326549+00:00",
+  "train_loss": 0.1887378744594753,
+  "val_loss": 0.13671362334454898,
+  "val_rmse": {
+    "vel_body_x_mps": 0.002833182636792307,
+    "vel_body_y_mps": 0.0015044209037784555,
+    "roll_rad": 2.7139894628531926e-05,
+    "pitch_rad": 1.213237722761513e-05,
+    "roll_rate_radps": 0.0017956334345601572,
+    "ang_vel_body_y_radps": 0.0013273253324301538,
+    "yaw_rate_radps": 0.0028323535029214915
+  }
+}
+{
+  "epoch": 2,
+  "timestamp_utc": "2026-06-10T04:20:38.764554+00:00",
+  "train_loss": 0.08202015455812216,
+  "val_loss": 0.12454488200397464,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0019158956330655426,
+    "vel_body_y_mps": 0.001139273087590575,
+    "roll_rad": 2.6472309920845315e-05,
+    "pitch_rad": 1.1733094571936825e-05,
+    "roll_rate_radps": 0.0017663983245090574,
+    "ang_vel_body_y_radps": 0.0013221715196993673,
+    "yaw_rate_radps": 0.0026002768807053857
+  }
+}
+{
+  "epoch": 3,
+  "timestamp_utc": "2026-06-10T04:21:04.123019+00:00",
+  "train_loss": 0.07053422863222658,
+  "val_loss": 0.09491303331116796,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0016744650250498602,
+    "vel_body_y_mps": 0.0009559121325389729,
+    "roll_rad": 2.0354843886842474e-05,
+    "pitch_rad": 9.520684137687069e-06,
+    "roll_rate_radps": 0.0015014169091308008,
+    "ang_vel_body_y_radps": 0.001180363267687959,
+    "yaw_rate_radps": 0.0022573766432856324
+  }
+}
+{
+  "epoch": 4,
+  "timestamp_utc": "2026-06-10T04:21:29.455386+00:00",
+  "train_loss": 0.06511453355289995,
+  "val_loss": 0.08634887015330606,
+  "val_rmse": {
+    "vel_body_x_mps": 0.001757398304583209,
+    "vel_body_y_mps": 0.0009099444752979389,
+    "roll_rad": 1.8892618008008973e-05,
+    "pitch_rad": 9.14095159984482e-06,
+    "roll_rate_radps": 0.001449112134148659,
+    "ang_vel_body_y_radps": 0.001103111567467942,
+    "yaw_rate_radps": 0.0021983051168457885
+  }
+}
+{
+  "epoch": 5,
+  "timestamp_utc": "2026-06-10T04:21:54.731738+00:00",
+  "train_loss": 0.061189348102547225,
+  "val_loss": 0.08080307594209443,
+  "val_rmse": {
+    "vel_body_x_mps": 0.001486401825107687,
+    "vel_body_y_mps": 0.0008304509177558602,
+    "roll_rad": 1.547050590861803e-05,
+    "pitch_rad": 8.400413496574145e-06,
+    "roll_rate_radps": 0.001416546714953658,
+    "ang_vel_body_y_radps": 0.0010860720543203418,
+    "yaw_rate_radps": 0.002065401326600824
+  }
+}
+{
+  "epoch": 6,
+  "timestamp_utc": "2026-06-10T04:22:20.009023+00:00",
+  "train_loss": 0.05908257515355945,
+  "val_loss": 0.07831039022188634,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0014952631098658499,
+    "vel_body_y_mps": 0.000896128553945256,
+    "roll_rad": 1.7648303370962392e-05,
+    "pitch_rad": 8.347128474689717e-06,
+    "roll_rate_radps": 0.00138826463917093,
+    "ang_vel_body_y_radps": 0.0010634398081035197,
+    "yaw_rate_radps": 0.002075985572319275
+  }
+}
+{
+  "epoch": 7,
+  "timestamp_utc": "2026-06-10T04:22:45.339709+00:00",
+  "train_loss": 0.05869597752764821,
+  "val_loss": 0.07660753163712798,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0013366886223506445,
+    "vel_body_y_mps": 0.0008236151985147127,
+    "roll_rad": 1.5913887086902583e-05,
+    "pitch_rad": 8.120639248432756e-06,
+    "roll_rate_radps": 0.0013955653189830597,
+    "ang_vel_body_y_radps": 0.0010564633017098948,
+    "yaw_rate_radps": 0.002018147548934947
+  }
+}
+{
+  "epoch": 8,
+  "timestamp_utc": "2026-06-10T04:23:10.742529+00:00",
+  "train_loss": 0.057086991453543304,
+  "val_loss": 0.07238854229319258,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0013418236983929958,
+    "vel_body_y_mps": 0.0008121140648807081,
+    "roll_rad": 1.6192624850774187e-05,
+    "pitch_rad": 8.40854078976999e-06,
+    "roll_rate_radps": 0.0013582117664328864,
+    "ang_vel_body_y_radps": 0.0010235637168779421,
+    "yaw_rate_radps": 0.001913826438765548
+  }
+}
+{
+  "epoch": 9,
+  "timestamp_utc": "2026-06-10T04:23:35.944712+00:00",
+  "train_loss": 0.055954677225090566,
+  "val_loss": 0.0674996235826984,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0012992577720371695,
+    "vel_body_y_mps": 0.000770359416712172,
+    "roll_rad": 1.4822978439848553e-05,
+    "pitch_rad": 7.957758269137393e-06,
+    "roll_rate_radps": 0.0012836160776878997,
+    "ang_vel_body_y_radps": 0.0009950686344535054,
+    "yaw_rate_radps": 0.0019345468781939148
+  }
+}
+{
+  "epoch": 10,
+  "timestamp_utc": "2026-06-10T04:24:01.111664+00:00",
+  "train_loss": 0.05386144374497235,
+  "val_loss": 0.07015369304921477,
+  "val_rmse": {
+    "vel_body_x_mps": 0.001322520581666477,
+    "vel_body_y_mps": 0.000794099935074422,
+    "roll_rad": 1.4937380117932001e-05,
+    "pitch_rad": 7.307759064952557e-06,
+    "roll_rate_radps": 0.0013188959337838676,
+    "ang_vel_body_y_radps": 0.0010183921835515723,
+    "yaw_rate_radps": 0.0019330691830380703
+  }
+}
+{
+  "epoch": 11,
+  "timestamp_utc": "2026-06-10T04:24:26.212877+00:00",
+  "train_loss": 0.05399850802868605,
+  "val_loss": 0.07228954508282186,
+  "val_rmse": {
+    "vel_body_x_mps": 0.00126855046970976,
+    "vel_body_y_mps": 0.0007801211348256123,
+    "roll_rad": 1.7080643838493135e-05,
+    "pitch_rad": 7.515694565035707e-06,
+    "roll_rate_radps": 0.0013625275659044662,
+    "ang_vel_body_y_radps": 0.001030568713734088,
+    "yaw_rate_radps": 0.0019103802710061903
+  }
+}
+{
+  "epoch": 12,
+  "timestamp_utc": "2026-06-10T04:24:51.340756+00:00",
+  "train_loss": 0.052643966054543856,
+  "val_loss": 0.07208718903115369,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0012308610757157871,
+    "vel_body_y_mps": 0.0008481507772779127,
+    "roll_rad": 1.4498978499994678e-05,
+    "pitch_rad": 7.347039163769745e-06,
+    "roll_rate_radps": 0.0013586305172370704,
+    "ang_vel_body_y_radps": 0.0010263261462600981,
+    "yaw_rate_radps": 0.0019994928458362308
+  }
+}
+{
+  "epoch": 13,
+  "timestamp_utc": "2026-06-10T04:25:16.600796+00:00",
+  "train_loss": 0.05267790750414133,
+  "val_loss": 0.06695921509861363,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0012879731550008591,
+    "vel_body_y_mps": 0.0007655803424696559,
+    "roll_rad": 1.3247226745726899e-05,
+    "pitch_rad": 7.305283153412019e-06,
+    "roll_rate_radps": 0.0013041548400811404,
+    "ang_vel_body_y_radps": 0.000992630570187863,
+    "yaw_rate_radps": 0.0018334345387621205
+  }
+}
+{
+  "epoch": 14,
+  "timestamp_utc": "2026-06-10T04:25:41.875119+00:00",
+  "train_loss": 0.05194649199582636,
+  "val_loss": 0.06513191215955885,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0012806133192738182,
+    "vel_body_y_mps": 0.0007641092472959125,
+    "roll_rad": 1.4588227395661586e-05,
+    "pitch_rad": 7.95009338683527e-06,
+    "roll_rate_radps": 0.0012505717257856857,
+    "ang_vel_body_y_radps": 0.0009890365643686143,
+    "yaw_rate_radps": 0.0017959841755444165
+  }
+}
+{
+  "epoch": 15,
+  "timestamp_utc": "2026-06-10T04:26:07.062342+00:00",
+  "train_loss": 0.05155502730980516,
+  "val_loss": 0.07170969826605869,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0013694371457425416,
+    "vel_body_y_mps": 0.0007983673677889658,
+    "roll_rad": 1.4060913657039e-05,
+    "pitch_rad": 7.6204609301718745e-06,
+    "roll_rate_radps": 0.0013724630254790013,
+    "ang_vel_body_y_radps": 0.0010253585778145758,
+    "yaw_rate_radps": 0.001750443801527578
+  }
+}
+{
+  "epoch": 16,
+  "timestamp_utc": "2026-06-10T04:26:32.128937+00:00",
+  "train_loss": 0.05153469500504434,
+  "val_loss": 0.06393812725276803,
+  "val_rmse": {
+    "vel_body_x_mps": 0.001355422037830206,
+    "vel_body_y_mps": 0.0007212171377654248,
+    "roll_rad": 1.3078920470071907e-05,
+    "pitch_rad": 7.3089038753088996e-06,
+    "roll_rate_radps": 0.0012643098536973905,
+    "ang_vel_body_y_radps": 0.0009669573635098658,
+    "yaw_rate_radps": 0.0017960881833033575
+  }
+}
+{
+  "epoch": 17,
+  "timestamp_utc": "2026-06-10T04:26:57.446839+00:00",
+  "train_loss": 0.050718165191821755,
+  "val_loss": 0.06609016078247805,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0011982092421303505,
+    "vel_body_y_mps": 0.0007041500334255486,
+    "roll_rad": 1.305440238034755e-05,
+    "pitch_rad": 6.95151300060959e-06,
+    "roll_rate_radps": 0.0012954101769228122,
+    "ang_vel_body_y_radps": 0.0009982964014829568,
+    "yaw_rate_radps": 0.001760744066376555
+  }
+}
+{
+  "epoch": 18,
+  "timestamp_utc": "2026-06-10T04:27:22.772782+00:00",
+  "train_loss": 0.05055678098835051,
+  "val_loss": 0.06439634311784176,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0011829301582178724,
+    "vel_body_y_mps": 0.0007205856203017145,
+    "roll_rad": 1.5327578772606512e-05,
+    "pitch_rad": 6.9571492408885915e-06,
+    "roll_rate_radps": 0.0012805644211695275,
+    "ang_vel_body_y_radps": 0.0009802574271567453,
+    "yaw_rate_radps": 0.0017663492442406758
+  }
+}
+{
+  "epoch": 19,
+  "timestamp_utc": "2026-06-10T04:27:48.280921+00:00",
+  "train_loss": 0.0504405964659527,
+  "val_loss": 0.06338053050443705,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0011742726330990529,
+    "vel_body_y_mps": 0.0006969776351844185,
+    "roll_rad": 1.546710344158815e-05,
+    "pitch_rad": 7.169449888998526e-06,
+    "roll_rate_radps": 0.0012727833050034235,
+    "ang_vel_body_y_radps": 0.0009769313760781616,
+    "yaw_rate_radps": 0.001657916941481388
+  }
+}
+{
+  "epoch": 20,
+  "timestamp_utc": "2026-06-10T04:28:13.641549+00:00",
+  "train_loss": 0.0493990559829399,
+  "val_loss": 0.0639200887075276,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0012048002457071998,
+    "vel_body_y_mps": 0.0007432271189114699,
+    "roll_rad": 1.3479516386200436e-05,
+    "pitch_rad": 6.8595814538656904e-06,
+    "roll_rate_radps": 0.00125620716195227,
+    "ang_vel_body_y_radps": 0.0009917653686141766,
+    "yaw_rate_radps": 0.001665445954430231
+  }
+}
+{
+  "epoch": 21,
+  "timestamp_utc": "2026-06-10T04:28:39.083399+00:00",
+  "train_loss": 0.04885513760987669,
+  "val_loss": 0.0708340794488322,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0011470626450747112,
+    "vel_body_y_mps": 0.0006894951369092266,
+    "roll_rad": 1.4151062116642974e-05,
+    "pitch_rad": 6.984584202363188e-06,
+    "roll_rate_radps": 0.0013712041608080054,
+    "ang_vel_body_y_radps": 0.0010359187665333564,
+    "yaw_rate_radps": 0.0016963094189055966
+  }
+}
+{
+  "epoch": 22,
+  "timestamp_utc": "2026-06-10T04:29:04.450520+00:00",
+  "train_loss": 0.04842899245582521,
+  "val_loss": 0.0685423161178187,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0011418788716321857,
+    "vel_body_y_mps": 0.0007059347557949359,
+    "roll_rad": 1.2475062962402964e-05,
+    "pitch_rad": 7.2111261322223375e-06,
+    "roll_rate_radps": 0.0013312900024830996,
+    "ang_vel_body_y_radps": 0.001018324867487748,
+    "yaw_rate_radps": 0.001755140489781501
+  }
+}
+{
+  "epoch": 23,
+  "timestamp_utc": "2026-06-10T04:29:29.890445+00:00",
+  "train_loss": 0.0483813788946718,
+  "val_loss": 0.058483173240092584,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0011110874251209206,
+    "vel_body_y_mps": 0.0006677895813738406,
+    "roll_rad": 1.3122517856285512e-05,
+    "pitch_rad": 6.925217312450213e-06,
+    "roll_rate_radps": 0.0012104197609001568,
+    "ang_vel_body_y_radps": 0.0009424196219412985,
+    "yaw_rate_radps": 0.001634070044864166
+  }
+}
+{
+  "epoch": 24,
+  "timestamp_utc": "2026-06-10T04:29:55.226429+00:00",
+  "train_loss": 0.048431488101370636,
+  "val_loss": 0.060265926830106765,
+  "val_rmse": {
+    "vel_body_x_mps": 0.0011857404182935456,
+    "vel_body_y_mps": 0.0006788310392480334,
+    "roll_rad": 1.286961165715812e-05,
+    "pitch_rad": 7.255800201455843e-06,
+    "roll_rate_radps": 0.0012106145944516537,
+    "ang_vel_body_y_radps": 0.0009601465401538514,
+    "yaw_rate_radps": 0.0016553860121561723
+  }
+}
+[2026-06-10T04:29:59.847885+00:00] d050_v07_050g failed: CalledProcessError(-7, ['/home/harry/anaconda3/envs/tutorial/bin/python', 'scripts/train_hmmwv_dynamics.py', '--config', '/home/harry/NeDM/artifacts/training_runs/hmmwv_sweep_v07_data_scaling/configs/d050_v07_050g.json', '--device', 'cuda'])

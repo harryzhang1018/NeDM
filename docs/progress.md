@@ -2,7 +2,7 @@
 
 A living log of the overall project state, so both of us can see at a glance what is done, what the headline numbers are, and what is next. Update this file whenever a milestone lands or a headline metric changes.
 
-Last updated: 2026-06-16 (15-D bumpy cache, bumpy refs, flat-vs-bumpy NN + Chrono eval)
+Last updated: 2026-06-19 (RL training ~6.8× speedup via short dynamics context, K=16)
 
 ## Status At A Glance
 
@@ -11,6 +11,7 @@ Last updated: 2026-06-16 (15-D bumpy cache, bumpy refs, flat-vs-bumpy NN + Chron
 | 1 | Rigid flat-terrain HMMWV dataset | Done | ~310 GB across 4 dataset generations, 100 Hz episode CSVs |
 | 2 | NN dynamics model for HMMWV | Done | Upgraded from 7-D state to 15-D tire-normal-force/omega state; current RL backbone is `hmmwv_transformer_v07_tire_normal_force_omega_300g` |
 | 3 | RL tracking on NN dynamics + Chrono eval | Done (first pass) | 15-D policy eval now covers flat and bumpy rest-start refs; bumpy terrain degrades Chrono transfer substantially |
+| 4 | CRM (deformable soil) generalist dynamics NN | Sign of life | Flat+CRM co-trained generalist beats the naive flat+CRM baseline on **both** domains (CRM open-loop err/dist 31% → 9%, flat 27% → 15%); flat tax vs dedicated flat base remains |
 
 ## Milestone 1: Rigid Flat-Terrain HMMWV Dataset
 
@@ -172,6 +173,40 @@ Artifacts:
 - Bumpy NN summary: `artifacts/rl_runs/hmmwv_rl_15d_5090_2048env_tmux_v2/eval_bumpy15d_model500_val_rest_start/summary.json`
 - Bumpy Chrono summary: `artifacts/rl_runs/hmmwv_rl_15d_5090_2048env_tmux_v2/chrono_eval_bumpy15d_model500_val_rest_start/summary.json`
 
+### Dynamics-Context Speedup for RL Training (2026-06-19)
+
+RL training throughput on the 15-D run was stuck at ~5K steps/s (4090) / ~6.6K (5090) despite 2,048 envs. Root cause, isolated from the RL loop with two new benchmark scripts (`scripts/bench_dynamics_inference.py`, `scripts/bench_context_accuracy.py`): every `_nn_substep` ran the dynamics transformer over the **full `block_size = 128` history** (`state_hist` is allocated at `context_steps`) but only consumes the last token — O(seq²) attention on ~128× more tokens than needed, ×`action_repeat = 5` substeps per policy step. Two findings:
+
+- **Batching saturates around batch = 64**: at seq=128 the GPU is already compute-bound, so 64 → 2,048 envs gives the *same* steps/s. Large batch buys decorrelated experience, not throughput. The "(15,1)→(15,n) is ~free" intuition only holds up to GPU saturation.
+- **The dynamics is near-Markovian**: pose RMSE over 300-step open-loop rollouts is flat (0.09–0.23 m) for context K from 128 down to 1; K=16 is as good as / better than the full 128.
+
+Fix: new `dynamics_context_steps` env config knob (+ `--dynamics-context-steps` CLI flag in `scripts/train_hmmwv_rl_tracking.py`) feeds only the last K tokens to the model. Buffers stay full-size and reset still warm-starts from 128 reference steps — only the model input is sliced (`None` = full context, backward-compatible). Measured on the same 4090, identical config otherwise:
+
+| Dynamics context | steps/s | collection / iter | 2,000-iter ETA |
+|---|---:|---:|---:|
+| Full 128 (baseline) | ~5,080 | 51.4 s | ~29 h |
+| **K = 16** | **~34,000** | **7.6 s** | **~4.4 h** |
+
+≈**6.8× end-to-end speedup** (PPO learning is ~0.2 s/iter, negligible); a bit under the 9× pure-inference gain because the full-size buffer roll + obs assembly are now a larger share of the cost.
+
+Relaunched the `hmmwv_rl_15d_5090_2048env_tmux_v2` config verbatim plus `dynamics_context_steps = 16` as `artifacts/rl_runs/hmmwv_rl_15d_4090_2048env_K16` (on a 4090; the original "5090" run was on a different host). Eval of the new `model_500.pt` vs the original full-context `model_500.pt`, same val rest-start refs (20), same `hmmwv_overfit_v1.json` chrono config, no steering clamp:
+
+| Eval backend | Run | Mean XY RMSE | Median XY RMSE | Diverged |
+|---|---|---:|---:|---:|
+| Chrono (ground truth) | Original (full ctx) | 0.246 m | 0.2167 m | 0 / 20 |
+| Chrono (ground truth) | **K=16** | 0.330 m | **0.2168 m** | 0 / 20 |
+| NN env | Original (full ctx) | 0.429 m | 0.342 m | 0 / 20 |
+| NN env | **K=16** | 0.631 m | 0.324 m | 1 / 20 |
+
+K=16 tracking quality is **on par with full context**: identical Chrono median and zero Chrono divergences. The higher K=16 means come from two hard refs (`steer_brake_s111`, `sustained_turn_s065`); on the other 18 the two runs are within a few cm. The single NN-env divergence (`steer_brake_s111`, 11.9 m in NN dynamics) is an NN-rollout artifact — that same trajectory tracks at 1.30 m in Chrono. Caveat: both are iteration 500 / 2000 (unconverged) from *different* training runs (different hardware/RNG), so the small mean gap is within run-to-run variance; re-compare at a later/converged checkpoint to confirm.
+
+Artifacts:
+
+- K=16 run (in progress): `artifacts/rl_runs/hmmwv_rl_15d_4090_2048env_K16/` (tmux `rl_k16`)
+- K=16 NN eval: `artifacts/rl_runs/hmmwv_rl_15d_4090_2048env_K16/eval_tracking_model_500_val_rest_start/`
+- K=16 Chrono eval: `artifacts/rl_runs/hmmwv_rl_15d_4090_2048env_K16/chrono_eval_tracking_model_500_val_rest_start/`
+- Benchmarks: `scripts/bench_dynamics_inference.py`, `scripts/bench_context_accuracy.py`
+
 ## Bumpy-Terrain Transfer (2026-06-11)
 
 First out-of-regime test: take the **flat-terrain-trained** `model_1999` policy and evaluate it in Chrono on **bumpy rigid-heightmap terrain** (the same `bumpy_field_*.bmp` library the 10 GB bumpy dataset was collected on, 500×500 m patches, height ±0.6 m). The Chrono env now reproduces the exact per-episode terrain: each reference's heightmap is recovered deterministically from its `episode_id` via `assign_height_map_index` (verified to match every stored `height_map_index`), and `HMMWVChronoTrackingEnv._create_sim` passes it to `create_rigid_terrain`. Setup: bumpy reference set `hmmwv_bumpy_refs_20_1100_rest_start.npz` (rest-start; 6 families — bumpy data has no launch_brake/step_steer/aggressive_*), eval config `configs/hmmwv_bumpy_eval.json`, `steering_rate_limit=0.3`, 20 m bound. See the `run-bumpy-terrain-eval` skill for the full recipe.
@@ -183,6 +218,120 @@ First out-of-regime test: take the **flat-terrain-trained** `model_1999` policy 
 
 The flat-trained policy **does not transfer well to bumpy terrain**: mean RMSE jumps 0.26 → 1.46 m and 4/20 references diverge to the 20 m bound (refs 1 sine, 3 multi, 14 doublet, 16 chirp — all high-speed, high-travel steering maneuvers where the bumps perturb the tires most). Slow/braking refs (sustained_turn, steer_brake) still track within ~0.2–0.5 m. This is expected: both the frozen v07 NN dynamics model and the PPO policy only ever saw flat-terrain tire dynamics, so bump-induced load transfer and tire-force variation are out of distribution. **Closing this gap requires finetuning both the NN dynamics model and the policy on the bumpy dataset** — the eval harness for measuring that is now in place.
 
+## CRM Co-Trained Generalist Dynamics Model — First Sign of Life (2026-06-18)
+
+CRM (Continuum Representation Method — Chrono SPH/FSI deformable granular soil) is the **real**
+domain shift, qualitatively harder than bumpy: the flat-trained v07 base does **not** zero-shot to
+it. On a 22-episode CRM validation set its full-episode open-loop XY error is ~44% of distance
+traveled (vs ~6% on flat), because CRM adds wheel slip + sinkage that rigid-terrain data never
+contains (analysis in `artifacts/analysis/hmmwv_crm_15d_distribution/README.md`). Every sequential
+finetune off the flat base had previously made things *worse*, so the plan switched to **co-training
+one generalist** across terrains (balanced sampling + rollout-based selection) rather than
+sequential finetuning.
+
+First co-train attempt — `hmmwv_transformer_v07_tire_normal_force_omega_300g_crm100_mix25_scratch`
+(75% flat / 25% CRM batches, from scratch) — exposed a pipeline bug: its loss was a plain
+flat-normalized MSE, in which the CRM tire normal-force (Fz) delta is ~30× the flat per-step std →
+~900× in MSE, so the loss and the `val_mixed_loss` checkpoint metric were both dominated by an
+essentially-aleatoric channel. That metric *increased* as the model actually learned, so it
+selected the **epoch-1** checkpoint.
+
+Three fixes (all in `src/nedm/training/trainer.py`, backward-compatible behind config flags) →
+new run `..._crm100_mix25_rebal_rollout`:
+1. **Rebalanced loss** — per-channel weights from the equal-domain combined (flat+CRM) target std
+   + Huber (`_build_channel_weights`, `_compute_loss`, config `loss` block). The flat-std term
+   cancels, so the loss is effectively normalized by the combined scale; CRM-Fz stops dominating.
+2. **Checkpoint selection on `rollout_sel`** (combined flat+CRM open-loop err/dist), not one-step val.
+3. **Dual-domain rollout eval** during training (flat+CRM, 5 s / 10 s horizons; 10 s clears the
+   rest-start warm-up so it measures real maneuvering).
+
+Verification (`scripts/verify_rebal_vs_baseline.py`) uses full-episode open-loop **aggregate**
+err/dist = `sqrt(Σ pos²/Σ steps) / mean episode distance` (distance-weighted, robust; the
+mean-of-ratios variant is junk on CRM because immobilized episodes — e.g. one where ground truth
+moves 0.1 m — blow it up):
+
+| checkpoint | FLAT err/dist | CRM err/dist |
+|---|---:|---:|
+| flat-only 300 GB base (gold flat reference) | 6.1% | 44.2% |
+| `mix25_scratch` baseline `last` (the run to beat) | 27.1% | 31.2% |
+| generalist `best_val` (ep25, auto-selected) | 23.6% | **7.4%** |
+| **generalist `last` (ep80, best all-round)** | **15.4%** | 9.4% |
+
+Findings:
+
+- **Sign of life confirmed.** The co-trained generalist beats the naive baseline on **both**
+  domains at once — `last` (ep80) is flat 1.8× and CRM 3.3× better than the baseline. CRM forward-
+  speed prediction (open-loop vx RMSE) drops from 2.46 → 0.55 m/s. The three changes work as
+  intended: rebalancing let the model actually learn CRM, and rollout selection captured a
+  checkpoint ~4× better on the metric that matters, where the old metric shipped epoch 1.
+- **Flat tax remains** vs the dedicated flat-only base (15.4% vs 6.1%) — the expected co-training
+  cost. The flat-only base + its RL policy stay the shippable flat/bumpy result; this generalist
+  *adds* CRM. The baseline's flat dynamics were actually corrupted too (open-loop omega RMSE
+  50 rad/s, Fz 31 kN); the generalist fixes that (omega ~5, Fz ~0.4 kN).
+- **Selection metric mis-ranked.** More flat training shrank the flat tax (ep25 23.6% → ep80 15.4%)
+  for a tiny CRM cost (7.4% → 9.4%), so `last` (ep80) is the better generalist — but the noisy 10 s,
+  12-episode `rollout_sel` picked ep25. CRM Fz stays aleatoric (~4.7 kN, by design down-weighted).
+
+Artifacts:
+
+- Run: `artifacts/training_runs/hmmwv_transformer_v07_tire_normal_force_omega_300g_crm100_mix25_rebal_rollout/`
+  (config, `logs/run.log`, 80 epochs, `checkpoints/{best_val,last}.pt`)
+- Config: `configs/hmmwv_transformer_v07_tire_normal_force_omega_300g_crm100_mix25_rebal_rollout.json`
+- Verify / plot: `scripts/verify_rebal_vs_baseline.py`, `scripts/plot_rebal_vs_baseline_overlay.py`
+  → `artifacts/analysis/hmmwv_crm_15d_distribution/rebal_overlay_{crm,flat}.png`
+- Writeup: `artifacts/analysis/hmmwv_crm_15d_distribution/README.md` §7
+
+### Improvement ablations (2026-06-18)
+
+Three single-variable ablations off `..._rebal_rollout` (each 80 epochs, same selection/eval),
+to see whether the generalist could be pushed further. Trainer support added (backward-compatible):
+`model_normalization` override + `_equal_domain_normalization` (combined input/output norm), and
+`loss.channel_weight_overrides` (per-channel emphasis). Sweep: `scripts/{launch,run}_crm100_ablation_sweep.sh`.
+
+Gold full-episode open-loop err/dist (aggregate; best checkpoint per run):
+
+| run | change | FLAT | CRM | flat vx RMSE | verdict |
+|---|---|---:|---:|---:|---|
+| `..._rebal_rollout` (incumbent) | — | **15.4%** | 9.4% | 2.46 | best overall |
+| `..._crm100_combnorm` | equal-domain combined input/output norm | 19.9% | 9.2% | 2.23 | worse flat — de-centers the dominant flat domain |
+| `..._crm100_crm40` | 60/40 flat:CRM batch (vs 75/25) | 15.8% | 12.8% | 2.44 | worse both — CRM overfit |
+| `..._crm100_vx3` | 3× loss weight on vx | 15.5% | **8.6%** | **1.85** | ~tie flat, marginal CRM win, tighter vx |
+
+Findings: none is a decisive win. **More CRM batch weight ≠ better CRM** (overfits the ~96k-row
+CRM set → the bottleneck is CRM *data*). **Combined input normalization is the wrong lever**
+(it de-centers flat, which is 75% of the mix and where the do-no-harm bar lives; per-domain
+specialization should come from *terrain conditioning*, not a shared-norm shift). **vx upweight**
+is the only upside — small CRM gain at equal flat plus genuinely tighter vx — but it's fragile under
+the noisy 10s/12-episode `rollout_sel`, which kept mis-ranking checkpoints (e.g. it picked vx3 ep80,
+but ep71 is the good one). De-noising selection (full-episode in-loop eval, more episodes) is now a
+higher-value fix than further loss tuning. (combnorm crashed once at ep11 with SIGBUS — the known
+degraded-14900KF flakiness — and was resumed to 80.)
+
+### Terrain conditioning — planned next direction (2026-06-19)
+
+The ablations confirmed the flat tax is a *shared-network compromise* problem, not a loss-scaling or
+data-ratio problem. Root cause: one network `f(state, action) → Δstate` must serve physically
+different terrains — given the same observable 15-D state + action, the true delta differs by terrain
+(rigid: vx ≈ ωR, no slip; CRM: vx < ωR, ~25% slip + sinkage), so with no terrain signal the net
+*averages* across terrains, and that average is the flat tax. Combined-std loss fixed the loss
+domination but not this. **Terrain conditioning** gives the net an explicit terrain signal so a shared
+backbone can make terrain-specific predictions `f(state, action, terrain) → Δstate` — shared capacity
+for kinematics/integration, specialized capacity for slip/sinkage/Fz. Expected win: flat returns
+toward the flat-only gold (6.1%) while CRM keeps ~8–9%, i.e. flat tax removed without hurting CRM.
+
+Variants, simplest → richest: (1) **one-hot terrain ID** concatenated to each token — trivial, and the
+label is *free* (each training sample's source cache, flat-seq vs CRM-seq, is its terrain); (2) **FiLM**
+— terrain code → per-layer scale/shift modulating hidden features (more expressive than concat);
+(3) **continuous soil params** (stiffness/cohesion/density the CRM sim sets per episode) — interpolates
+to unseen soils, estimable online; (4) **inferred context** — an encoder reads a short (s,a,s′) window
+and infers the terrain latent from the observed slip/sinkage signature, *needing no label at inference*
+(the deployment-honest version for RL/real Chrono on soft soil). Plan: start with one-hot/FiLM as a
+clean A/B vs the current generalist (small changes — grow the transformer input or add a FiLM head;
+tag each sub-batch with its terrain id in `mixed_infinite_loader` before the merge; supply the id per
+episode at eval), then graduate to inferred context. Caveat: conditioning helps *allocation*, not
+*information* — it does not reduce CRM data needs (**more CRM data is under generation**). This is
+design-rule #4 from the original co-train plan, now justified by the confirmed flat tax.
+
 ## Open Items / Next Steps
 
 - **Braking transfer gap**: the policy tracks turning references in Chrono but diverges on braking-heavy ones — likely a dynamics-model gap (brake response) rather than a policy gap; worth checking v07 open-loop rollout error on launch_brake/steer_brake segments specifically.
@@ -191,3 +340,4 @@ The flat-trained policy **does not transfer well to bumpy terrain**: mean RMSE j
 - **15-D held-out validation outliers**: held-out/rest-start eval now exists for the 15-D policy. The NN env and Chrono env both run, but the validation set has several NN outliers; compare `xy_mean_m` to training logs and inspect per-reference behavior before drawing conclusions from aggregate RMSE alone.
 - **Bumpy-terrain finetune (next major step)**: the flat-trained policies regress on bumpy terrain. The older 7-D/v07 check degraded from mean 0.26 → 1.46 m with 4/20 divergences, and the newer 15-D `model_500.pt` check degraded from mean 0.25 → 0.62 m in Chrono. Plan: (1) finetune the current 15-D tire-normal-force/omega NN dynamics model on `hmmwv_bumpy_10g_normal_force_omega_seq_v1`, then (2) finetune/retrain the PPO policy against that bumpy dynamics model, and (3) re-run the 15-D bumpy NN + Chrono eval to measure recovery. The 15-D bumpy cache, reference sets, eval helper config, and per-episode terrain reproduction are all done.
 - **Beyond the fixed regime**: bumpy-terrain *evaluation* now exists (heightmap terrain reproduced per episode); friction variation, observation noise, and tire-channel supervision are still out of scope.
+- **CRM generalist follow-ups** (informed by the 2026-06-18 ablations): (1) **de-noise checkpoint selection** — make the in-loop rollout eval full-episode (or longer horizon) with more episodes so `rollout_sel` stops mis-ranking (it picked ep25/vx3-ep80 when the gold metric prefers different epochs); highest-value fix. (2) **More CRM data (under generation, 2026-06-19)** — the `crm40` ablation showed more CRM *batch weight* just overfits the ~96k-row set (CRM 9.4%→12.8%), so the limiter is data, not weight (also still ~18% boundary cutoffs / ~15% immobilized episodes to curate). (3) **Terrain conditioning** (one-hot → FiLM → inferred context) for per-domain specialization to attack the flat tax — see the dedicated subsection above; combined input normalization (`combnorm`) is the *wrong* lever (it de-centers the dominant flat domain → flat 15.4%→19.9%). (4) Keep the **vx loss upweight** (marginal CRM win + tighter vx, free). (5) Extend flat+CRM to the full **tri-domain** (add bumpy) generalist; train/eval a PPO policy against it and run CRM Chrono transfer.
