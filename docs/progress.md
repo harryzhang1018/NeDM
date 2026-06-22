@@ -2,7 +2,7 @@
 
 A living log of the overall project state, so both of us can see at a glance what is done, what the headline numbers are, and what is next. Update this file whenever a milestone lands or a headline metric changes.
 
-Last updated: 2026-06-19 (RL training ~6.8× speedup via short dynamics context, K=16)
+Last updated: 2026-06-22 (20× CRM data collected + processed — `hmmwv_crm_2000`; next step is the flat+CRM generalist retrain on it)
 
 ## Status At A Glance
 
@@ -11,7 +11,7 @@ Last updated: 2026-06-19 (RL training ~6.8× speedup via short dynamics context,
 | 1 | Rigid flat-terrain HMMWV dataset | Done | ~310 GB across 4 dataset generations, 100 Hz episode CSVs |
 | 2 | NN dynamics model for HMMWV | Done | Upgraded from 7-D state to 15-D tire-normal-force/omega state; current RL backbone is `hmmwv_transformer_v07_tire_normal_force_omega_300g` |
 | 3 | RL tracking on NN dynamics + Chrono eval | Done (first pass) | 15-D policy eval now covers flat and bumpy rest-start refs; bumpy terrain degrades Chrono transfer substantially |
-| 4 | CRM (deformable soil) generalist dynamics NN | Sign of life | Flat+CRM co-trained generalist beats the naive flat+CRM baseline on **both** domains (CRM open-loop err/dist 31% → 9%, flat 27% → 15%); flat tax vs dedicated flat base remains |
+| 4 | CRM (deformable soil) generalist dynamics NN | Sign of life; scaling data | Flat+CRM co-trained generalist beats the naive flat+CRM baseline on **both** domains (CRM open-loop err/dist 31% → 9%, flat 27% → 15%); flat tax vs dedicated flat base remains. **20× CRM data now collected + processed (`hmmwv_crm_2000`, 2026-06-22)** — next step is to retrain the generalist on it (data was the identified bottleneck) |
 
 ## Milestone 1: Rigid Flat-Terrain HMMWV Dataset
 
@@ -329,8 +329,42 @@ and infers the terrain latent from the observed slip/sinkage signature, *needing
 clean A/B vs the current generalist (small changes — grow the transformer input or add a FiLM head;
 tag each sub-batch with its terrain id in `mixed_infinite_loader` before the merge; supply the id per
 episode at eval), then graduate to inferred context. Caveat: conditioning helps *allocation*, not
-*information* — it does not reduce CRM data needs (**more CRM data is under generation**). This is
-design-rule #4 from the original co-train plan, now justified by the confirmed flat tax.
+*information* — it does not reduce CRM data needs (**the 20× CRM set `hmmwv_crm_2000` has since
+landed — see the 2026-06-22 subsection below**). This is design-rule #4 from the original co-train
+plan, now justified by the confirmed flat tax.
+
+### 20× CRM data collected + processed — `hmmwv_crm_2000` (2026-06-22)
+
+The ablations above pinned the headline CRM limiter on **data, not loss/ratio tuning** (the `crm40`
+batch-weight bump just overfit the ~96k-row crm_100 set). That larger set is now in hand.
+
+- **Raw**: `artifacts/datasets/hmmwv_crm_2000` — **2000 episodes** (20× `hmmwv_crm_100`), same CRM
+  collector and scenario family (`crm2000_*` prefix), identical maneuver mix (chirp 300 / doublet 200 /
+  multi 600 / sine 300 / steer_brake 200 / sustained_turn 400 — same proportions as crm_100) and terrain
+  (150×150 m, CRM spacing 0.08 m, depth 0.25 m). Collected via `scripts/run_hmmwv_crm2000_collection.sh`.
+- **Processed (15-D, the combined-model pipeline)**:
+  `artifacts/training_datasets/hmmwv_crm_2000_normal_force_omega_seq_v1` — built with the *same*
+  `tire_normal_force_omega` preset as crm_100
+  (`scripts/build_hmmwv_training_dataset.py --state-field-preset tire_normal_force_omega`).
+  **1582 train episodes / 2,280,431 transitions; 418 val / 602,530 transitions** — ~22× the ~128k-row
+  crm_100 cache, ~23.6× its 96k training rows. State/action/target/rollout fields verified
+  *field-for-field identical* to `hmmwv_crm_100_normal_force_omega_seq_v1`, so it is a drop-in swap.
+- **QA**: no NaN/Inf across all 2000 CSVs, no truncated episodes; episode-length and per-channel
+  (actions, body velocities, yaw rate, tire forces, slip, spindle ω) distributions match crm_100
+  closely. The ~18% boundary-cutoff / ~15% immobilized episodes therefore persist at similar
+  *proportions*, but there is now ~20× more mobile data in absolute terms (curation still open).
+- A 23-D `tire_force_omega` variant (`hmmwv_crm_2000_force_omega_seq_v1`) was also auto-built by the
+  collection script; **use the 15-D `_normal_force_omega_` cache** for the flat+CRM generalist (the 23-D
+  one does not match the established pipeline).
+
+**Next step (not yet run): retrain the flat+CRM generalist on crm_2000.** Fork
+`configs/hmmwv_transformer_v07_tire_normal_force_omega_300g_crm100_mix25_rebal_rollout.json` and swap the
+**four** `hmmwv_crm_100_normal_force_omega_seq_v1` references → `hmmwv_crm_2000_normal_force_omega_seq_v1`
+(`train_mix` crm dataset, `validation_datasets` crm, `loss.channel_weight_datasets[1]`, `rollout_eval`
+crm dataset); the launch/run scripts default `CRM_PROCESSED_DIR` to the crm_100 cache, so override that
+env var or add a `crm2000_mix25` config+script. This re-tests the flat:CRM batch-ratio question on the
+20× set (the `crm40` overfit should ease) and is the do-no-harm/CRM-gain headline for Milestone 4. Run
+on Euler, not the degraded local box.
 
 ## Open Items / Next Steps
 
@@ -340,4 +374,4 @@ design-rule #4 from the original co-train plan, now justified by the confirmed f
 - **15-D held-out validation outliers**: held-out/rest-start eval now exists for the 15-D policy. The NN env and Chrono env both run, but the validation set has several NN outliers; compare `xy_mean_m` to training logs and inspect per-reference behavior before drawing conclusions from aggregate RMSE alone.
 - **Bumpy-terrain finetune (next major step)**: the flat-trained policies regress on bumpy terrain. The older 7-D/v07 check degraded from mean 0.26 → 1.46 m with 4/20 divergences, and the newer 15-D `model_500.pt` check degraded from mean 0.25 → 0.62 m in Chrono. Plan: (1) finetune the current 15-D tire-normal-force/omega NN dynamics model on `hmmwv_bumpy_10g_normal_force_omega_seq_v1`, then (2) finetune/retrain the PPO policy against that bumpy dynamics model, and (3) re-run the 15-D bumpy NN + Chrono eval to measure recovery. The 15-D bumpy cache, reference sets, eval helper config, and per-episode terrain reproduction are all done.
 - **Beyond the fixed regime**: bumpy-terrain *evaluation* now exists (heightmap terrain reproduced per episode); friction variation, observation noise, and tire-channel supervision are still out of scope.
-- **CRM generalist follow-ups** (informed by the 2026-06-18 ablations): (1) **de-noise checkpoint selection** — make the in-loop rollout eval full-episode (or longer horizon) with more episodes so `rollout_sel` stops mis-ranking (it picked ep25/vx3-ep80 when the gold metric prefers different epochs); highest-value fix. (2) **More CRM data (under generation, 2026-06-19)** — the `crm40` ablation showed more CRM *batch weight* just overfits the ~96k-row set (CRM 9.4%→12.8%), so the limiter is data, not weight (also still ~18% boundary cutoffs / ~15% immobilized episodes to curate). (3) **Terrain conditioning** (one-hot → FiLM → inferred context) for per-domain specialization to attack the flat tax — see the dedicated subsection above; combined input normalization (`combnorm`) is the *wrong* lever (it de-centers the dominant flat domain → flat 15.4%→19.9%). (4) Keep the **vx loss upweight** (marginal CRM win + tighter vx, free). (5) Extend flat+CRM to the full **tri-domain** (add bumpy) generalist; train/eval a PPO policy against it and run CRM Chrono transfer.
+- **CRM generalist follow-ups** (informed by the 2026-06-18 ablations): (1) **de-noise checkpoint selection** — make the in-loop rollout eval full-episode (or longer horizon) with more episodes so `rollout_sel` stops mis-ranking (it picked ep25/vx3-ep80 when the gold metric prefers different epochs); highest-value fix. (2) **More CRM data — LANDED 2026-06-22** — `hmmwv_crm_2000` (2000 eps) collected and processed to `hmmwv_crm_2000_normal_force_omega_seq_v1` (~2.28M train / 0.60M val transitions, ~23.6× the crm_100 training rows; see the dedicated subsection above). The `crm40` ablation showed more CRM *batch weight* just overfits the ~96k-row set (CRM 9.4%→12.8%), so the limiter was data, not weight — now addressable. **Actionable next step: retrain the flat+CRM generalist swapping crm_100→crm_2000** (4 config refs) and re-test the flat:CRM ratio on the 20× set. (Still ~18% boundary cutoffs / ~15% immobilized episodes to curate.) (3) **Terrain conditioning** (one-hot → FiLM → inferred context) for per-domain specialization to attack the flat tax — see the dedicated subsection above; combined input normalization (`combnorm`) is the *wrong* lever (it de-centers the dominant flat domain → flat 15.4%→19.9%). (4) Keep the **vx loss upweight** (marginal CRM win + tighter vx, free). (5) Extend flat+CRM to the full **tri-domain** (add bumpy) generalist; train/eval a PPO policy against it and run CRM Chrono transfer.
