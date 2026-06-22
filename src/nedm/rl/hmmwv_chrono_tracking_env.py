@@ -33,6 +33,8 @@ class ChronoHMMWVSim:
     hmmwv: Any
     terrain: Any
     driver_inputs: Any
+    # CRM-only: per-wheel handles used to read FSI tire forces. None for rigid terrain.
+    wheels: Any = None
 
 
 def default_chrono_env_cfg() -> dict[str, Any]:
@@ -57,6 +59,8 @@ def default_chrono_env_cfg() -> dict[str, Any]:
             "render_camera_distance": 6.0,
             "render_camera_height": 0.5,
             "render_line_z_m": 0.3,
+            # True: detailed HMMWV mesh (demo_VEH_HMMWV.py look). False: robust all-PRIMITIVES.
+            "render_vehicle_mesh": True,
         }
     )
     return cfg
@@ -162,7 +166,7 @@ class HMMWVChronoTrackingEnv(VecEnv):
 
         repo_root = repo_root_from_module()
         chrono_config_path = resolve_project_path(repo_root, self.cfg["chrono_config"])
-        self.chrono_config = load_config(chrono_config_path)
+        self.chrono_config = self._load_chrono_config(chrono_config_path)
         configure_chrono_data_paths(repo_root, self.chrono_config)
         simulation_cfg = self.chrono_config["simulation"]
         self.chrono_step_size_s = (
@@ -220,6 +224,11 @@ class HMMWVChronoTrackingEnv(VecEnv):
     @property
     def unwrapped(self) -> "HMMWVChronoTrackingEnv":
         return self
+
+    def _load_chrono_config(self, config_path: Path) -> dict[str, Any]:
+        """Load and validate the Chrono collector config. Subclasses override for
+        terrain types (e.g. CRM) that the rigid-terrain loader rejects."""
+        return load_config(config_path)
 
     def _validate_reference_set(self, reference_set: ReferenceSet) -> None:
         if abs(reference_set.dt_s - self.dt_s) > 1.0e-8:
@@ -325,6 +334,25 @@ class HMMWVChronoTrackingEnv(VecEnv):
         init_cfg["fwd_vel_mps"] = max(0.0, float(ref_state[self.state_index["vel_body_x_mps"]]))
 
         hmmwv = create_hmmwv(config)
+        terrain, wheels = self._create_terrain(hmmwv, config, reference_id)
+        driver_inputs = veh.DriverInputs()
+        driver_inputs.m_steering = float(ref_action[0])
+        driver_inputs.m_throttle = float(ref_action[1])
+        driver_inputs.m_braking = float(ref_action[2])
+        driver_inputs.m_clutch = 0.0
+        sim = ChronoHMMWVSim(hmmwv=hmmwv, terrain=terrain, driver_inputs=driver_inputs, wheels=wheels)
+        if self.render_enabled:
+            # Enable visual assets HERE, before any warm-start stepping. Chrono's suspension/steering
+            # primitive visuals freeze their hardpoints in absolute coords at Initialize() and
+            # re-express them in each body's frame when the asset is added; adding them after the
+            # bodies have moved (warm-start) yields stale offsets that "hover" off the wheels. The
+            # chassis/wheel/tire meshes use fixed body-local offsets, so they're unaffected.
+            self._enable_vehicle_visuals(sim)
+        return sim
+
+    def _create_terrain(self, hmmwv: Any, config: dict[str, Any], reference_id: int) -> tuple[Any, Any]:
+        """Build the terrain for one sim. Returns (terrain, wheels); wheels is None
+        for rigid terrain (only CRM needs per-wheel FSI handles)."""
         # rigid_heightmap terrain is per-episode: each reference was collected on the
         # bumpy field deterministically assigned to its episode_id. Reproduce that exact
         # terrain so the eval drives over the same bumps. resolve_height_map returns None
@@ -336,12 +364,7 @@ class HMMWVChronoTrackingEnv(VecEnv):
             config,
             height_map_path=height_map[1] if height_map is not None else None,
         )
-        driver_inputs = veh.DriverInputs()
-        driver_inputs.m_steering = float(ref_action[0])
-        driver_inputs.m_throttle = float(ref_action[1])
-        driver_inputs.m_braking = float(ref_action[2])
-        driver_inputs.m_clutch = 0.0
-        return ChronoHMMWVSim(hmmwv=hmmwv, terrain=terrain, driver_inputs=driver_inputs)
+        return terrain, None
 
     def _set_driver_action_np(self, sim: ChronoHMMWVSim, action: np.ndarray) -> None:
         sim.driver_inputs.m_steering = float(action[0])
@@ -391,9 +414,9 @@ class HMMWVChronoTrackingEnv(VecEnv):
         out.mkdir(parents=True, exist_ok=True)
         self._render_dir = out
 
-        # create_hmmwv() builds the vehicle with VisualizationType_NONE (the collector never renders),
-        # so re-enable visual assets before the vis binds them, otherwise the car is invisible.
-        self._enable_vehicle_visuals(sim)
+        # Vehicle visuals were already enabled at sim creation, before warm-start stepping
+        # (see _create_sim) — enabling them here, after the bodies have moved, mislocates the
+        # suspension/steering primitive cylinders. Just draw the reference line.
         # Reference line must live on a body already in the system before the vis binds assets.
         self._add_reference_line(sim, ref_id)
 
@@ -425,18 +448,33 @@ class HMMWVChronoTrackingEnv(VecEnv):
         return out
 
     def _enable_vehicle_visuals(self, sim: ChronoHMMWVSim) -> None:
-        # PRIMITIVES for every subsystem: the HMMWV_Full chassis MESH renders broken here, and
-        # primitives are robust and don't need external mesh assets.
+        # create_hmmwv() builds the vehicle with VisualizationType_NONE, so re-enable assets here.
+        # With cfg["render_vehicle_mesh"] (default), match demo_VEH_HMMWV.py: detailed MESH for the
+        # chassis/wheels/tires and PRIMITIVES for the suspension/steering linkages. Set it False to
+        # fall back to all-PRIMITIVES (no external mesh assets needed, robust if meshes are missing).
         hmmwv = sim.hmmwv
-        for setter in (
-            hmmwv.SetChassisVisualizationType,
-            hmmwv.SetSuspensionVisualizationType,
-            hmmwv.SetSteeringVisualizationType,
-            hmmwv.SetWheelVisualizationType,
-            hmmwv.SetTireVisualizationType,
-        ):
+        if bool(self.cfg.get("render_vehicle_mesh", True)):
+            vis_types = {
+                hmmwv.SetChassisVisualizationType: chrono.VisualizationType_MESH,
+                hmmwv.SetSuspensionVisualizationType: chrono.VisualizationType_MESH,
+                hmmwv.SetSteeringVisualizationType: chrono.VisualizationType_MESH,
+                hmmwv.SetWheelVisualizationType: chrono.VisualizationType_MESH,
+                hmmwv.SetTireVisualizationType: chrono.VisualizationType_MESH,
+            }
+        else:
+            vis_types = {
+                setter: chrono.VisualizationType_PRIMITIVES
+                for setter in (
+                    hmmwv.SetChassisVisualizationType,
+                    hmmwv.SetSuspensionVisualizationType,
+                    hmmwv.SetSteeringVisualizationType,
+                    hmmwv.SetWheelVisualizationType,
+                    hmmwv.SetTireVisualizationType,
+                )
+            }
+        for setter, vis_type in vis_types.items():
             try:
-                setter(chrono.VisualizationType_PRIMITIVES)
+                setter(vis_type)
             except Exception:
                 pass
 

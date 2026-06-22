@@ -26,8 +26,16 @@ SRC_ROOT = REPO_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
+from nedm.rl.hmmwv_chrono_crm_tracking_env import HMMWVChronoCRMTrackingEnv
 from nedm.rl.hmmwv_chrono_tracking_env import HMMWVChronoTrackingEnv
 from nedm.rl.references import load_reference_set
+
+
+def resolve_terrain_type(chrono_config: Path) -> str:
+    """Read terrain.type from the Chrono config to pick the rigid vs CRM env."""
+    path = chrono_config if chrono_config.is_absolute() else (REPO_ROOT / chrono_config)
+    config = json.loads(path.read_text())
+    return str(config.get("terrain", {}).get("type", "rigid"))
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -45,6 +53,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=Path("configs/hmmwv_overfit_v1.json"),
         help="Collector config that defines HMMWV and terrain setup.",
+    )
+    parser.add_argument(
+        "--reference-path",
+        type=Path,
+        default=None,
+        help="Override the reference set in env_cfg (e.g. a CRM reference set). Fields/dt must match the checkpoint.",
     )
     parser.add_argument("--num-references", type=int, default=None, help="Number of references to evaluate.")
     parser.add_argument("--reference-index", type=int, default=None, help="Evaluate only one reference index.")
@@ -282,11 +296,17 @@ def main(argv: list[str] | None = None) -> int:
     env_cfg["auto_reset"] = False
     env_cfg["num_envs"] = 1
     env_cfg["chrono_config"] = str(args.chrono_config)
+    if args.reference_path is not None:
+        env_cfg["reference_path"] = str(args.reference_path)
     if args.chrono_step_size_s is not None:
         env_cfg["chrono_step_size_s"] = float(args.chrono_step_size_s)
     if args.steering_rate_limit is not None:
         env_cfg["steering_rate_limit"] = float(args.steering_rate_limit)
+    terrain_type = resolve_terrain_type(args.chrono_config)
+    env_class = HMMWVChronoCRMTrackingEnv if terrain_type == "crm" else HMMWVChronoTrackingEnv
     if args.render:
+        if terrain_type == "crm":
+            raise ValueError("--render is not supported for CRM terrain eval yet.")
         if args.reference_index is None:
             raise ValueError("--render renders a single rollout; pass --reference-index too.")
         env_cfg["render"] = True
@@ -305,7 +325,7 @@ def main(argv: list[str] | None = None) -> int:
         reference_indices = list(range(num_references))
     env_cfg["initial_reference_ids"] = [reference_indices[0]]
 
-    env = HMMWVChronoTrackingEnv(env_cfg, device=args.device)
+    env = env_class(env_cfg, device=args.device)
     runner = OnPolicyRunner(env, train_cfg, log_dir=None, device=args.device)
     load_runner_checkpoint(runner, checkpoint_path, device=args.device)
     policy = runner.get_inference_policy(device=args.device)

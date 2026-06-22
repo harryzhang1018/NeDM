@@ -30,20 +30,15 @@ from nedm.hmmwv_data import (
     create_hmmwv,
     csv_field_names,
 )
+from nedm.hmmwv_crm import (
+    GRAVITY,
+    WheelRuntime,
+    capture_crm_row,
+    configure_crm_terrain,
+)
 
 
-WORLD_UP = chrono.ChVector3d(0, 0, 1)
-GRAVITY = 9.81
 DEFAULT_OUTPUT_DIR = Path("artifacts/datasets/hmmwv_crm_smoke")
-
-
-@dataclass(frozen=True)
-class WheelRuntime:
-    name: str
-    axle_index: int
-    side: Any
-    spindle: Any
-    radius_m: float
 
 
 def parse_args() -> argparse.Namespace:
@@ -219,113 +214,6 @@ def build_collector_config(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
-def configure_crm_terrain(hmmwv: Any, config: dict[str, Any]) -> tuple[Any, list[WheelRuntime]]:
-    terrain_cfg = config["terrain"]
-    soil_cfg = terrain_cfg["soil"]
-    sph_cfg = terrain_cfg["sph"]
-    simulation_cfg = config["simulation"]
-    step_size_s = float(simulation_cfg["step_size_s"])
-    chrono_threads = max(int(simulation_cfg.get("chrono_threads", 12)), 1)
-    collision_threads = max(int(simulation_cfg.get("collision_threads", 1)), 1)
-    eigen_threads = max(int(simulation_cfg.get("eigen_threads", 1)), 1)
-
-    vehicle = hmmwv.GetVehicle()
-    system = hmmwv.GetSystem()
-    system.SetSolverType(chrono.ChSolver.Type_BARZILAIBORWEIN)
-    system.SetTimestepperType(chrono.ChTimestepper.Type_EULER_IMPLICIT_LINEARIZED)
-    system.SetNumThreads(chrono_threads, collision_threads, eigen_threads)
-    system.SetCollisionSystemType(chrono.ChCollisionSystem.Type_BULLET)
-
-    terrain = veh.CRMTerrain(system, float(terrain_cfg["initial_spacing_m"]))
-    terrain.SetVerbose(False)
-    terrain.SetGravitationalAcceleration(chrono.ChVector3d(0, 0, -GRAVITY))
-    terrain.SetStepSizeCFD(step_size_s)
-    terrain.RegisterVehicle(vehicle)
-
-    mat_props = fsi.ElasticMaterialProperties()
-    mat_props.density = float(soil_cfg["density"])
-    mat_props.Young_modulus = float(soil_cfg["young_modulus_pa"])
-    mat_props.Poisson_ratio = float(soil_cfg["poisson_ratio"])
-    mat_props.mu_I0 = float(soil_cfg["mu_I0"])
-    mat_props.mu_fric_s = float(soil_cfg["friction"])
-    mat_props.mu_fric_2 = float(soil_cfg["friction"])
-    mat_props.average_diam = float(soil_cfg["average_diam_m"])
-    mat_props.cohesion_coeff = float(soil_cfg["cohesion"])
-    terrain.SetElasticSPH(mat_props)
-
-    sph_params = fsi.SPHParameters()
-    sph_params.integration_scheme = fsi.IntegrationScheme_RK2
-    sph_params.initial_spacing = float(terrain_cfg["initial_spacing_m"])
-    sph_params.d0_multiplier = float(sph_cfg["d0_multiplier"])
-    sph_params.free_surface_threshold = float(sph_cfg["free_surface_threshold"])
-    sph_params.artificial_viscosity = float(sph_cfg["artificial_viscosity"])
-    shifting_methods = {
-        "NONE": fsi.ShiftingMethod_NONE,
-        "PPST": fsi.ShiftingMethod_PPST,
-        "XSPH": fsi.ShiftingMethod_XSPH,
-        "DIFFUSION": fsi.ShiftingMethod_DIFFUSION,
-        "DIFFUSION_XSPH": fsi.ShiftingMethod_DIFFUSION_XSPH,
-        "PPST_XSPH": fsi.ShiftingMethod_PPST_XSPH,
-    }
-    shifting_method_name = str(sph_cfg["shifting_method"]).upper()
-    sph_params.shifting_method = shifting_methods[shifting_method_name]
-    sph_params.shifting_ppst_push = float(sph_cfg["shifting_ppst_push"])
-    sph_params.shifting_ppst_pull = float(sph_cfg["shifting_ppst_pull"])
-    sph_params.use_consistent_gradient_discretization = False
-    sph_params.use_consistent_laplacian_discretization = False
-    sph_params.viscosity_method = fsi.ViscosityMethod_ARTIFICIAL_BILATERAL
-    sph_params.boundary_method = fsi.BoundaryMethod_ADAMI
-    if hasattr(sph_params, "num_proximity_search_steps"):
-        sph_params.num_proximity_search_steps = int(sph_cfg["num_proximity_search_steps"])
-    terrain.SetSPHParameters(sph_params)
-
-    wheels = collect_wheel_runtime(vehicle)
-    mesh_filename = veh.GetVehicleDataFile("hmmwv/hmmwv_tire_coarse_closed.obj")
-    geometry = chrono.ChBodyGeometry()
-    geometry.coll_meshes.append(
-        chrono.TrimeshShape(chrono.VNULL, chrono.QUNIT, mesh_filename, chrono.VNULL)
-    )
-    for wheel in wheels:
-        terrain.AddRigidBody(wheel.spindle, geometry, False)
-
-    terrain.SetActiveDomain(chrono.ChVector3d(*terrain_cfg["active_domain_m"]))
-    terrain.SetActiveDomainDelay(float(terrain_cfg["active_domain_delay_s"]))
-    terrain.Construct(
-        chrono.ChVector3d(
-            float(terrain_cfg["length_m"]),
-            float(terrain_cfg["width_m"]),
-            float(terrain_cfg["depth_m"]),
-        ),
-        chrono.ChVector3d(*terrain_cfg["center_m"]),
-        fsi.BoxSide_ALL & ~fsi.BoxSide_Z_POS,
-    )
-    terrain.Initialize()
-    return terrain, wheels
-
-
-def collect_wheel_runtime(vehicle: Any) -> list[WheelRuntime]:
-    by_spec: dict[tuple[int, Any], Any] = {}
-    for axle_index, axle in enumerate(vehicle.GetAxles()):
-        for wheel in axle.GetWheels():
-            side = veh.LEFT if wheel.GetSpindle().GetPos().y > 0 else veh.RIGHT
-            by_spec[(axle_index, side)] = wheel
-
-    wheels: list[WheelRuntime] = []
-    for name, axle_index, side in WHEEL_SPECS:
-        wheel = by_spec[(axle_index, side)]
-        tire = vehicle.GetTire(axle_index, side)
-        wheels.append(
-            WheelRuntime(
-                name=name,
-                axle_index=axle_index,
-                side=side,
-                spindle=wheel.GetSpindle(),
-                radius_m=float(tire.GetRadius()),
-            )
-        )
-    return wheels
-
-
 def constant_profile(value: float) -> dict[str, Any]:
     return {"kind": "constant", "value": float(value)}
 
@@ -425,133 +313,6 @@ def build_crm_smoke_scenario(args: argparse.Namespace) -> dict[str, Any]:
             "braking": braking,
         },
     }
-
-
-def capture_base_fields(
-    hmmwv: Any,
-    scenario_name: str,
-    scenario_family: str,
-    episode_id: str,
-    split: str,
-    sample_index: int,
-    time_s: float,
-    driver_inputs: Any,
-) -> dict[str, Any]:
-    vehicle = hmmwv.GetVehicle()
-    body = hmmwv.GetChassis().GetBody()
-    ref = body.GetFrameRefToAbs()
-
-    pos = ref.GetPos()
-    quat = ref.GetRot()
-    euler_zyx = quat.GetCardanAnglesZYX()
-    vel_world = ref.GetPosDt()
-    vel_body = ref.TransformDirectionParentToLocal(vel_world)
-    acc_world = body.GetPosDt2()
-    acc_body = ref.TransformDirectionParentToLocal(acc_world)
-    ang_world = ref.GetAngVelParent()
-    ang_body = ref.GetAngVelLocal()
-
-    return {
-        "episode_id": episode_id,
-        "scenario_name": scenario_name,
-        "scenario_family": scenario_family,
-        "split": split,
-        "sample_index": sample_index,
-        "time_s": time_s,
-        "driver_steering": float(driver_inputs.m_steering),
-        "driver_throttle": float(driver_inputs.m_throttle),
-        "driver_braking": float(driver_inputs.m_braking),
-        "pos_x_m": float(pos.x),
-        "pos_y_m": float(pos.y),
-        "pos_z_m": float(pos.z),
-        "quat_e0": float(quat.e0),
-        "quat_e1": float(quat.e1),
-        "quat_e2": float(quat.e2),
-        "quat_e3": float(quat.e3),
-        "roll_rad": float(vehicle.GetRoll()),
-        "pitch_rad": float(vehicle.GetPitch()),
-        "yaw_rad": float(euler_zyx.z),
-        "vel_world_x_mps": float(vel_world.x),
-        "vel_world_y_mps": float(vel_world.y),
-        "vel_world_z_mps": float(vel_world.z),
-        "vel_body_x_mps": float(vel_body.x),
-        "vel_body_y_mps": float(vel_body.y),
-        "vel_body_z_mps": float(vel_body.z),
-        "acc_world_x_mps2": float(acc_world.x),
-        "acc_world_y_mps2": float(acc_world.y),
-        "acc_world_z_mps2": float(acc_world.z),
-        "acc_body_x_mps2": float(acc_body.x),
-        "acc_body_y_mps2": float(acc_body.y),
-        "acc_body_z_mps2": float(acc_body.z),
-        "ang_vel_world_x_radps": float(ang_world.x),
-        "ang_vel_world_y_radps": float(ang_world.y),
-        "ang_vel_world_z_radps": float(ang_world.z),
-        "ang_vel_body_x_radps": float(ang_body.x),
-        "ang_vel_body_y_radps": float(ang_body.y),
-        "ang_vel_body_z_radps": float(ang_body.z),
-        "speed_mps": float(vehicle.GetSpeed()),
-        "body_slip_rad": float(vehicle.GetSlipAngle()),
-        "roll_rate_radps": float(vehicle.GetRollRate()),
-        "yaw_rate_radps": float(vehicle.GetYawRate()),
-    }
-
-
-def capture_crm_row(
-    hmmwv: Any,
-    terrain: Any,
-    wheels: list[WheelRuntime],
-    scenario_name: str,
-    scenario_family: str,
-    episode_id: str,
-    split: str,
-    sample_index: int,
-    time_s: float,
-    driver_inputs: Any,
-) -> dict[str, Any]:
-    row = capture_base_fields(
-        hmmwv=hmmwv,
-        scenario_name=scenario_name,
-        scenario_family=scenario_family,
-        episode_id=episode_id,
-        split=split,
-        sample_index=sample_index,
-        time_s=time_s,
-        driver_inputs=driver_inputs,
-    )
-
-    for wheel in wheels:
-        spindle = wheel.spindle
-        force = terrain.GetFsiBodyForce(spindle)
-        torque = terrain.GetFsiBodyTorque(spindle)
-        spin_axis = spindle.GetRot().GetAxisY()
-        heading = spin_axis.Cross(WORLD_UP).GetNormalized()
-        lateral = WORLD_UP.Cross(heading)
-        v_wheel = spindle.GetPosDt()
-        wheel_vx = float(v_wheel.Dot(heading))
-        wheel_vy = float(v_wheel.Dot(lateral))
-        omega = float(spindle.GetAngVelParent().Dot(spin_axis))
-        slip_ratio = (omega * wheel.radius_m - wheel_vx) / max(abs(wheel_vx), 0.1)
-        slip_angle = math.atan2(wheel_vy, max(abs(wheel_vx), 1e-6))
-
-        prefix = wheel.name
-        row[f"{prefix}_longitudinal_slip"] = float(slip_ratio)
-        row[f"{prefix}_slip_angle_rad"] = float(slip_angle)
-        row[f"{prefix}_camber_angle_rad"] = 0.0
-        row[f"{prefix}_force_world_x_n"] = float(force.x)
-        row[f"{prefix}_force_world_y_n"] = float(force.y)
-        row[f"{prefix}_force_world_z_n"] = float(force.z)
-        row[f"{prefix}_moment_world_x_nm"] = float(torque.x)
-        row[f"{prefix}_moment_world_y_nm"] = float(torque.y)
-        row[f"{prefix}_moment_world_z_nm"] = float(torque.z)
-        row[f"{prefix}_force_wheel_fx_n"] = float(force.Dot(heading))
-        row[f"{prefix}_force_wheel_fy_n"] = float(force.Dot(lateral))
-        row[f"{prefix}_force_wheel_fz_n"] = float(force.Dot(WORLD_UP))
-        row[f"{prefix}_spindle_omega_radps"] = omega
-        row[f"{prefix}_wheel_vx_mps"] = wheel_vx
-        row[f"{prefix}_slip_ratio"] = float(slip_ratio)
-        row[f"{prefix}_deflection_m"] = 0.0
-
-    return row
 
 
 def enable_vehicle_visuals(hmmwv: Any) -> None:
