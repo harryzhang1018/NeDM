@@ -1,0 +1,99 @@
+{
+  "processed_dataset_dir": "artifacts/training_datasets/hmmwv_tire_rigid_300g_normal_force_omega_seq_v1",
+  "output_dir": "artifacts/training_runs/hmmwv_transformer_v07_tire_normal_force_omega_300g_crm2000_mix00_rebal_rollout_onehot",
+  "validation_dataset_name": "flat",
+  "terrain_conditioning": {
+    "enabled": true,
+    "terrains": ["flat", "crm"]
+  },
+  "train_mix": {
+    "datasets": [
+      {
+        "name": "flat",
+        "terrain": "flat",
+        "processed_dataset_dir": "artifacts/training_datasets/hmmwv_tire_rigid_300g_normal_force_omega_seq_v1",
+        "batch_fraction": 1.0
+      }
+    ]
+  },
+  "validation_datasets": [
+    {
+      "name": "crm",
+      "terrain": "crm",
+      "processed_dataset_dir": "artifacts/training_datasets/hmmwv_crm_2000_normal_force_omega_seq_v1",
+      "split": "val",
+      "max_val_batches": 200
+    }
+  ],
+  "validation_loss_weights": {
+    "flat": 1.0
+  },
+  "loss": {
+    "type": "huber",
+    "huber_delta": 1.0,
+    "channel_weight_mode": "equal_domain_combined_std",
+    "channel_weight_datasets": [
+      "artifacts/training_datasets/hmmwv_tire_rigid_300g_normal_force_omega_seq_v1",
+      "artifacts/training_datasets/hmmwv_crm_2000_normal_force_omega_seq_v1"
+    ]
+  },
+  "rollout_eval": {
+    "num_episodes": 12,
+    "horizons_s": [5.0, 10.0],
+    "selection_horizon_s": 10.0,
+    "datasets": [
+      {
+        "name": "flat",
+        "terrain": "flat",
+        "processed_dataset_dir": "artifacts/training_datasets/hmmwv_tire_rigid_300g_normal_force_omega_seq_v1",
+        "split": "val",
+        "weight": 1.0
+      },
+      {
+        "name": "crm",
+        "terrain": "crm",
+        "processed_dataset_dir": "artifacts/training_datasets/hmmwv_crm_2000_normal_force_omega_seq_v1",
+        "split": "val",
+        "weight": 0.0
+      }
+    ]
+  },
+  "model": {
+    "block_size": 128,
+    "n_layer": 6,
+    "n_head": 8,
+    "n_embd": 256,
+    "dropout": 0.0,
+    "bias": false,
+    "head_hidden_dim": 256
+  },
+  "optimizer": {
+    "lr": 0.0003,
+    "min_lr": 3e-05,
+    "weight_decay": 0.1,
+    "betas": [
+      0.9,
+      0.95
+    ],
+    "warmup_steps": 1000,
+    "grad_clip_norm": 1.0
+  },
+  "training": {
+    "seed": 2026062401,
+    "device": "cuda",
+    "batch_size": 64,
+    "num_workers": 0,
+    "num_epochs": 80,
+    "steps_per_epoch": 2000,
+    "max_val_batches": 200,
+    "checkpoint_metric": "rollout_sel",
+    "load_dataset_into_memory": true,
+    "pin_memory": false,
+    "compile": false
+  },
+  "sweep_recipe": {
+    "version": "v07_tire_normal_force_omega_300g_crm2000_mix00_rebal_rollout_onehot",
+    "slug": "flat100_crm2000_00_rebal_rollout_onehot",
+    "notes": "Flat-only (rigid) ablation of the crm2000_mix25_rebal_rollout_onehot generalist. Trained 100% on flat/rigid data (0% CRM) while holding everything else identical to the 75/25 mixture: same one-hot terrain conditioning over [flat, crm] (model input_dim stays 20), same flat-based input/output normalization (processed_dataset_dir = flat), and the same equal-domain-combined-std Huber channel weighting over flat+CRM. Checkpoint selection (rollout_sel) is driven by the flat 10s rollout (weight 1.0); the CRM rollout/window val are kept at weight 0.0 purely for cross-domain monitoring (how badly a rigid-only specialist drifts on deformable CRM terrain). One of two ablation arms (the other is mix100 = CRM-only) bracketing the 75/25 generalist; isolates the contribution of CRM co-training to the shared backbone. The flat one-hot is supplied per-domain at window/rollout eval ([1,0] for flat, [0,1] for the monitored CRM rollouts)."
+  }
+}

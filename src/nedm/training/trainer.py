@@ -107,10 +107,20 @@ def infinite_loader(loader: DataLoader) -> Iterator[dict[str, torch.Tensor]]:
             yield batch
 
 
-def mixed_infinite_loader(loaders: list[DataLoader]) -> Iterator[dict[str, torch.Tensor]]:
+def mixed_infinite_loader(
+    loaders: list[DataLoader], terrain_ids: list[int] | None = None
+) -> Iterator[dict[str, torch.Tensor]]:
     iterators = [infinite_loader(loader) for loader in loaders]
     while True:
         batches = [next(iterator) for iterator in iterators]
+        # Tag every sub-batch with its source terrain id (the label is free: each
+        # train_mix source is one terrain). Done before the merge so the concatenated
+        # batch carries a per-sample terrain id aligned with its rows.
+        if terrain_ids is not None:
+            for batch, terrain_id in zip(batches, terrain_ids, strict=True):
+                batch["terrain_ids"] = torch.full(
+                    (batch["states"].shape[0],), int(terrain_id), dtype=torch.long
+                )
         if len(batches) == 1:
             yield batches[0]
             continue
@@ -226,6 +236,24 @@ class HMMWVTrainer:
             for field_index, field_name in enumerate(self.metadata["state_fields"])
         }
 
+        # Terrain conditioning: concatenate a one-hot terrain code to each token so a
+        # shared backbone can specialize per terrain (attacks the flat tax). The label
+        # is free — each dataset spec's terrain is given by its "terrain" key, or its
+        # "name" when that already matches a terrain (e.g. the "flat"/"crm" mix sources).
+        terrain_cfg = config.get("terrain_conditioning", {})
+        self.terrain_enabled = bool(terrain_cfg.get("enabled", False))
+        self.terrains = [str(name) for name in terrain_cfg.get("terrains", [])] if self.terrain_enabled else []
+        self.terrain_to_id = {name: index for index, name in enumerate(self.terrains)}
+        self.num_terrains = len(self.terrains)
+        if self.terrain_enabled:
+            if self.num_terrains < 2:
+                raise ValueError("terrain_conditioning.terrains needs at least 2 entries when enabled")
+            self.metadata["terrain_conditioning"] = {
+                "terrains": self.terrains,
+                "num_terrains": self.num_terrains,
+            }
+            print(f"terrain_conditioning: one-hot over {self.terrains}")
+
         # Optional: override the model's input/output normalization with an
         # equal-domain-combined (flat+CRM) normalization, so CRM inputs are not
         # left off-center by flat-only stats. Pooled equal-weight per domain:
@@ -264,6 +292,7 @@ class HMMWVTrainer:
         batch_counts = allocate_batch_sizes(batch_size, batch_fractions)
 
         self.train_loaders: list[DataLoader] = []
+        self.train_terrain_ids: list[int] = []
         self.train_source_batch_sizes: dict[str, int] = {}
         self.train_dataset: WindowedHMMWVDataset | None = None
         for source_index, (spec, source_batch_size) in enumerate(zip(train_specs, batch_counts, strict=True)):
@@ -302,6 +331,8 @@ class HMMWVTrainer:
                 )
             )
             self.train_source_batch_sizes[source_name] = source_batch_size
+            if self.terrain_enabled:
+                self.train_terrain_ids.append(self._resolve_terrain_id(spec))
         if not self.train_loaders or self.train_dataset is None:
             raise ValueError("no training loaders were configured")
 
@@ -321,7 +352,11 @@ class HMMWVTrainer:
             num_workers=num_workers,
             pin_memory=pin_memory,
         )
-        self.validation_dataset_name = metric_suffix(str(config.get("validation_dataset_name", "primary")))
+        validation_dataset_raw = str(config.get("validation_dataset_name", "primary"))
+        self.validation_dataset_name = metric_suffix(validation_dataset_raw)
+        # The primary val set is the model's processed_root (flat). Default to the
+        # first terrain when its name does not literally match the vocabulary.
+        self.primary_val_terrain_id = self._resolve_terrain_id(validation_dataset_raw, default=0)
         self.extra_val_loaders: list[dict[str, Any]] = []
         for source_index, spec in enumerate(config.get("validation_datasets", [])):
             source_name = metric_suffix(str(spec.get("name", f"extra_{source_index}")))
@@ -349,6 +384,7 @@ class HMMWVTrainer:
                     "name": source_name,
                     "loader": source_loader,
                     "max_batches": int(spec.get("max_val_batches", self.max_val_batches)),
+                    "terrain_id": self._resolve_terrain_id(spec, default=0),
                 }
             )
 
@@ -359,6 +395,7 @@ class HMMWVTrainer:
             target_dim=len(self.metadata["state_fields"]),
             transformer_cfg=config["model"],
             normalization=normalization,
+            num_terrains=self.num_terrains if self.terrain_enabled else 0,
         ).to(self.device)
 
         if bool(training_cfg.get("compile", False)) and hasattr(torch, "compile"):
@@ -394,6 +431,28 @@ class HMMWVTrainer:
         self.dt_s = float(self.metadata["dt_s"])
         if training_cfg.get("resume_from_checkpoint"):
             self.load_checkpoint(Path(training_cfg["resume_from_checkpoint"]))
+
+    def _resolve_terrain_id(self, spec: dict[str, Any] | str, default: int | None = None) -> int | None:
+        """Terrain id for a dataset spec; None when conditioning is disabled.
+
+        Prefers an explicit ``terrain`` key, falls back to ``name`` when it matches a
+        terrain in the vocabulary, then to ``default`` (used for legacy single-domain
+        eval). Raises if conditioning is on and nothing resolves.
+        """
+        if not self.terrain_enabled:
+            return None
+        if isinstance(spec, str):
+            key = spec
+        else:
+            key = spec.get("terrain") or spec.get("name")
+        if key in self.terrain_to_id:
+            return self.terrain_to_id[key]
+        if default is not None:
+            return default
+        raise ValueError(
+            f"terrain_conditioning enabled but could not resolve terrain for {spec!r}; "
+            f"add a \"terrain\" in {self.terrains}"
+        )
 
     def scheduled_lr(self) -> float:
         optimizer_cfg = self.config["optimizer"]
@@ -477,7 +536,7 @@ class HMMWVTrainer:
         for group in self.optimizer.param_groups:
             group["lr"] = lr
         self.optimizer.zero_grad(set_to_none=True)
-        prediction_norm = self.model(batch["states"], batch["actions"])
+        prediction_norm = self.model(batch["states"], batch["actions"], terrain=batch.get("terrain_ids"))
         target_norm = self.model.normalize_target(batch["targets"])
         loss = self._compute_loss(prediction_norm, target_norm)
         loss.backward()
@@ -487,7 +546,9 @@ class HMMWVTrainer:
         return float(loss.item())
 
     @torch.no_grad()
-    def _evaluate_window_loader(self, loader: DataLoader, max_batches: int) -> dict[str, Any]:
+    def _evaluate_window_loader(
+        self, loader: DataLoader, max_batches: int, terrain_id: int | None = None
+    ) -> dict[str, Any]:
         total_loss = 0.0
         total_batches = 0
         total_tokens = 0
@@ -497,7 +558,7 @@ class HMMWVTrainer:
             if batch_index >= max_batches:
                 break
             batch = move_batch(batch, self.device)
-            prediction_norm = self.model(batch["states"], batch["actions"])
+            prediction_norm = self.model(batch["states"], batch["actions"], terrain=terrain_id)
             target_norm = self.model.normalize_target(batch["targets"])
             loss = self._compute_loss(prediction_norm, target_norm)
             total_loss += float(loss.item())
@@ -520,7 +581,9 @@ class HMMWVTrainer:
     @torch.no_grad()
     def evaluate_windows(self) -> dict[str, Any]:
         self.model.eval()
-        primary_metrics = self._evaluate_window_loader(self.val_loader, self.max_val_batches)
+        primary_metrics = self._evaluate_window_loader(
+            self.val_loader, self.max_val_batches, self.primary_val_terrain_id
+        )
         metrics = {
             "val_loss": primary_metrics["loss"],
             "val_rmse": primary_metrics["rmse"],
@@ -528,7 +591,9 @@ class HMMWVTrainer:
             f"val_{self.validation_dataset_name}_rmse": primary_metrics["rmse"],
         }
         for source in self.extra_val_loaders:
-            source_metrics = self._evaluate_window_loader(source["loader"], source["max_batches"])
+            source_metrics = self._evaluate_window_loader(
+                source["loader"], source["max_batches"], source.get("terrain_id")
+            )
             metrics[f"val_{source['name']}_loss"] = source_metrics["loss"]
             metrics[f"val_{source['name']}_rmse"] = source_metrics["rmse"]
 
@@ -577,6 +642,7 @@ class HMMWVTrainer:
             name = metric_suffix(str(domain.get("name", "rollout")))
             domain_root = Path(domain["processed_dataset_dir"]).resolve()
             weight = float(domain.get("weight", 1.0))
+            terrain_id = self._resolve_terrain_id(domain, default=self.primary_val_terrain_id)
             split_data = load_rollout_split(domain_root, str(domain.get("split", "val")))
             selected_episodes = self._select_rollout_episodes(split_data["episodes"], num_episodes)
 
@@ -587,7 +653,7 @@ class HMMWVTrainer:
                 gt_distance = 0.0
                 episode_count = 0
                 for episode in selected_episodes:
-                    result = self._rollout_episode(episode, horizon_steps)
+                    result = self._rollout_episode(episode, horizon_steps, terrain_id)
                     if result is None:
                         continue
                     predicted_states, predicted_pose, _, gt_pose = result
@@ -644,6 +710,7 @@ class HMMWVTrainer:
         self,
         episode: dict[str, Any],
         horizon_steps: int,
+        terrain_id: int | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] | None:
         states = torch.from_numpy(episode["states"]).to(self.device)
         actions = torch.from_numpy(episode["actions"]).to(self.device)
@@ -664,7 +731,7 @@ class HMMWVTrainer:
         for step_index in range(steps):
             state_window = history_states[-self.sequence_length :].unsqueeze(0)
             action_window = history_actions[-self.sequence_length :].unsqueeze(0)
-            delta = self.model.predict_delta(state_window, action_window)[:, -1, :].squeeze(0)
+            delta = self.model.predict_delta(state_window, action_window, terrain=terrain_id)[:, -1, :].squeeze(0)
             next_state = history_states[-1] + delta
             current_pose = self._integrate_pose(current_pose, next_state)
             predicted_states.append(next_state)
@@ -751,7 +818,9 @@ class HMMWVTrainer:
             fp.write(json.dumps(record) + "\n")
 
     def train(self) -> Path:
-        train_iterator = mixed_infinite_loader(self.train_loaders)
+        train_iterator = mixed_infinite_loader(
+            self.train_loaders, self.train_terrain_ids if self.terrain_enabled else None
+        )
         last_checkpoint = self.checkpoint_dir / "last.pt"
         if self.start_epoch >= self.num_epochs:
             print(f"training already reached epoch {self.start_epoch}; target is {self.num_epochs}")

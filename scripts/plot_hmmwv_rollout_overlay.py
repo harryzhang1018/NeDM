@@ -45,6 +45,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Dataset split to draw the episode from.",
     )
     parser.add_argument(
+        "--rollout-dataset-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Optional processed dataset dir to draw rollout episodes from, instead of the "
+            "checkpoint's own processed_dataset_dir. The model keeps its training-time "
+            "normalization (from the checkpoint); only the raw episodes change. Use this to "
+            "evaluate a flat-trained / mixed model on a different terrain's val set (e.g. CRM), "
+            "which is exactly how that terrain's sub-batches were fed during mixed training. "
+            "Fields/dt must match the checkpoint."
+        ),
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=None,
@@ -232,7 +245,17 @@ def main(argv: list[str] | None = None) -> int:
     trainer.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
     trainer.model.eval()
 
-    split_data = load_rollout_split(trainer.processed_root, args.split)
+    rollout_root = (
+        args.rollout_dataset_dir.resolve()
+        if args.rollout_dataset_dir is not None
+        else trainer.processed_root
+    )
+    if rollout_root != trainer.processed_root:
+        print(
+            f"rollout episodes from {rollout_root} (model normalization kept from "
+            f"checkpoint dataset {trainer.processed_root})"
+        )
+    split_data = load_rollout_split(rollout_root, args.split)
     if args.episode_id is not None:
         selected_episodes = [select_episode(split_data["episodes"], args.episode_id, args.family)]
     else:

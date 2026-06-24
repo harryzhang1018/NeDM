@@ -47,12 +47,14 @@ def load_frozen_dynamics(
     if metadata is None:
         metadata = load_metadata(Path(config["processed_dataset_dir"]).expanduser().resolve())
 
+    terrain_cfg = metadata.get("terrain_conditioning") or {}
     model = HMMWVDynamicsModel(
         state_dim=len(metadata["state_fields"]),
         action_dim=len(metadata["action_fields"]),
         target_dim=len(metadata["state_fields"]),
         transformer_cfg=config["model"],
         normalization=metadata["normalization"],
+        num_terrains=int(terrain_cfg.get("num_terrains", 0)),
     )
     model.load_state_dict(_strip_compile_prefix(checkpoint["model_state_dict"]))
     model.to(torch.device(device))
