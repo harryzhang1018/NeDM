@@ -6,7 +6,29 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-PYTHON_BIN="${PYTHON_BIN:-/home/harry/anaconda3/envs/nedm/bin/python}"
+resolve_python_bin() {
+  if [[ -n "${PYTHON_BIN:-}" ]]; then
+    printf '%s\n' "$PYTHON_BIN"
+    return 0
+  fi
+  local candidate
+  for candidate in \
+    "/home/harry/miniconda3/envs/nedm/bin/python" \
+    "/home/harry/anaconda3/envs/nedm/bin/python"; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  if command -v python >/dev/null 2>&1 && python -c 'import pychrono' >/dev/null 2>&1; then
+    command -v python
+    return 0
+  fi
+  echo "Could not find a Python with pychrono. Set PYTHON_BIN=/path/to/nedm/bin/python." >&2
+  return 1
+}
+
+PYTHON_BIN="$(resolve_python_bin)"
 PLAN_DIR="${PLAN_DIR:-artifacts/datasets/hmmwv_crm_2000_plan}"
 OUTPUT_DIR="${OUTPUT_DIR:-artifacts/datasets/hmmwv_crm_2000}"
 PROCESSED_DIR="${PROCESSED_DIR:-artifacts/training_datasets/hmmwv_crm_2000_force_omega_seq_v1}"
