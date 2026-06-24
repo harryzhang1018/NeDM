@@ -38,6 +38,7 @@ def default_env_cfg() -> dict[str, Any]:
             "position_sigma_m": 2.0,
             "yaw_sigma_rad": 0.35,
             "state_sigma": 1.0,
+            "state_error_fields": None,
             "position_weight": 1.0,
             "yaw_weight": 0.8,
             "state_weight": 0.2,
@@ -118,6 +119,20 @@ class HMMWVNeuralTrackingEnv(VecEnv):
         self.state_fields = list(self.metadata["state_fields"])
         self.action_fields = list(self.metadata["action_fields"])
         self.state_index = {field_name: index for index, field_name in enumerate(self.state_fields)}
+        state_error_fields = self.cfg["reward"].get("state_error_fields")
+        if state_error_fields is None:
+            self.reward_state_indices = torch.arange(len(self.state_fields), dtype=torch.long, device=self.device)
+        else:
+            missing = [field_name for field_name in state_error_fields if field_name not in self.state_index]
+            if missing:
+                raise ValueError(f"Unknown reward.state_error_fields: {missing}")
+            self.reward_state_indices = torch.tensor(
+                [self.state_index[field_name] for field_name in state_error_fields],
+                dtype=torch.long,
+                device=self.device,
+            )
+            if self.reward_state_indices.numel() == 0:
+                raise ValueError("reward.state_error_fields must not be empty")
         self.reference_set = load_reference_set(self.cfg["reference_path"])
         self._validate_reference_set(self.reference_set, self.dynamics)
 
@@ -356,7 +371,8 @@ class HMMWVNeuralTrackingEnv(VecEnv):
 
         position_loss = torch.square(position_error / float(reward_cfg["position_sigma_m"]))
         yaw_loss = torch.square(yaw_error / float(reward_cfg["yaw_sigma_rad"]))
-        state_loss = torch.mean(torch.square(state_error_norm / float(reward_cfg["state_sigma"])), dim=-1)
+        reward_state_error_norm = state_error_norm[:, self.reward_state_indices]
+        state_loss = torch.mean(torch.square(reward_state_error_norm / float(reward_cfg["state_sigma"])), dim=-1)
         tracking_loss = (
             float(reward_cfg["position_weight"]) * position_loss
             + float(reward_cfg["yaw_weight"]) * yaw_loss
@@ -376,7 +392,7 @@ class HMMWVNeuralTrackingEnv(VecEnv):
             "tracking_loss": tracking_loss,
             "position_error_m": position_error,
             "yaw_error_abs_rad": torch.abs(yaw_error),
-            "state_error_norm": torch.sqrt(torch.mean(torch.square(state_error_norm), dim=-1)),
+            "state_error_norm": torch.sqrt(torch.mean(torch.square(reward_state_error_norm), dim=-1)),
             "action_rate": action_rate,
             "throttle_brake": throttle_brake,
         }

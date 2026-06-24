@@ -118,6 +118,30 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Max adjacent-step change for scaled steering command. Disabled when unset.",
     )
+    parser.add_argument(
+        "--action-rate-weight",
+        type=float,
+        default=None,
+        help="Reward penalty weight for squared adjacent driver-command changes. Uses env default when unset.",
+    )
+    parser.add_argument(
+        "--position-weight",
+        type=float,
+        default=None,
+        help="Reward tracking-loss weight for XY position error. Uses env default when unset.",
+    )
+    parser.add_argument(
+        "--yaw-weight",
+        type=float,
+        default=None,
+        help="Reward tracking-loss weight for yaw error. Uses env default when unset.",
+    )
+    parser.add_argument(
+        "--state-error-fields",
+        type=str,
+        default=None,
+        help="Comma-separated state fields used by the reward state-error term. Uses all fields when unset.",
+    )
     parser.add_argument("--obs-history-steps", type=int, default=10)
     parser.add_argument("--reference-preview-steps", type=int, default=10)
     parser.add_argument("--max-episode-steps", type=int, default=180)
@@ -202,6 +226,16 @@ def get_env_cfg(args: argparse.Namespace) -> dict[str, Any]:
             "termination": {"max_position_error_m": float(args.max_position_error_m)},
         }
     )
+    if args.action_rate_weight is not None:
+        cfg["reward"]["action_rate_weight"] = float(args.action_rate_weight)
+    if args.position_weight is not None:
+        cfg["reward"]["position_weight"] = float(args.position_weight)
+    if args.yaw_weight is not None:
+        cfg["reward"]["yaw_weight"] = float(args.yaw_weight)
+    if args.state_error_fields is not None:
+        cfg["reward"]["state_error_fields"] = [
+            field_name.strip() for field_name in args.state_error_fields.split(",") if field_name.strip()
+        ]
     return merge_env_cfg(cfg)
 
 
