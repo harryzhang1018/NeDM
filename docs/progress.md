@@ -2,7 +2,7 @@
 
 A living log of the overall project state, so both of us can see at a glance what is done, what the headline numbers are, and what is next. Update this file whenever a milestone lands or a headline metric changes.
 
-Last updated: 2026-06-22 (20× CRM data collected + processed — `hmmwv_crm_2000`; next step is the flat+CRM generalist retrain on it)
+Last updated: 2026-06-24 (flat+CRM generalist retrained on `hmmwv_crm_2000` with one-hot terrain conditioning; three-way ablation — one-hot generalist vs flat-only vs CRM-only — landed and pushed to `main`)
 
 ## Status At A Glance
 
@@ -11,7 +11,7 @@ Last updated: 2026-06-22 (20× CRM data collected + processed — `hmmwv_crm_200
 | 1 | Rigid flat-terrain HMMWV dataset | Done | ~310 GB across 4 dataset generations, 100 Hz episode CSVs |
 | 2 | NN dynamics model for HMMWV | Done | Upgraded from 7-D state to 15-D tire-normal-force/omega state; current RL backbone is `hmmwv_transformer_v07_tire_normal_force_omega_300g` |
 | 3 | RL tracking on NN dynamics + Chrono eval | Done (first pass) | 15-D policy eval now covers flat and bumpy rest-start refs; bumpy terrain degrades Chrono transfer substantially |
-| 4 | CRM (deformable soil) generalist dynamics NN | Sign of life; scaling data | Flat+CRM co-trained generalist beats the naive flat+CRM baseline on **both** domains (CRM open-loop err/dist 31% → 9%, flat 27% → 15%); flat tax vs dedicated flat base remains. **20× CRM data now collected + processed (`hmmwv_crm_2000`, 2026-06-22)** — next step is to retrain the generalist on it (data was the identified bottleneck) |
+| 4 | CRM (deformable soil) generalist dynamics NN | Generalist + ablations trained on 20× CRM (`crm_2000`) with one-hot terrain conditioning | One-hot 75/25 generalist hits **flat 9.1% / CRM 5.8%** open-loop 10s err/dist — improving the `crm_100` incumbent on **both** (flat 15.4%→9.1%, CRM 9.4%→5.8%). Single-domain ablations reach **flat 5.0% / CRM 3.7%** in-domain but collapse off-domain (flat-only→CRM 69%, CRM-only→flat 37%): co-training trades ~3–4 pt peak accuracy for cross-domain robustness. All three on `main` (LFS); see 2026-06-24 subsection |
 
 ## Milestone 1: Rigid Flat-Terrain HMMWV Dataset
 
@@ -357,7 +357,7 @@ batch-weight bump just overfit the ~96k-row crm_100 set). That larger set is now
   collection script; **use the 15-D `_normal_force_omega_` cache** for the flat+CRM generalist (the 23-D
   one does not match the established pipeline).
 
-**Next step (not yet run): retrain the flat+CRM generalist on crm_2000.** Fork
+**Next step (DONE 2026-06-24 — see the next subsection): retrain the flat+CRM generalist on crm_2000.** Fork
 `configs/hmmwv_transformer_v07_tire_normal_force_omega_300g_crm100_mix25_rebal_rollout.json` and swap the
 **four** `hmmwv_crm_100_normal_force_omega_seq_v1` references → `hmmwv_crm_2000_normal_force_omega_seq_v1`
 (`train_mix` crm dataset, `validation_datasets` crm, `loss.channel_weight_datasets[1]`, `rollout_eval`
@@ -365,6 +365,76 @@ crm dataset); the launch/run scripts default `CRM_PROCESSED_DIR` to the crm_100 
 env var or add a `crm2000_mix25` config+script. This re-tests the flat:CRM batch-ratio question on the
 20× set (the `crm40` overfit should ease) and is the do-no-harm/CRM-gain headline for Milestone 4. Run
 on Euler, not the degraded local box.
+
+### Flat+CRM generalist retrained on crm_2000 + one-hot terrain conditioning — three-way ablation (2026-06-24)
+
+The two planned next-steps above — **retrain the generalist on `hmmwv_crm_2000`** and **add terrain
+conditioning** — landed together. The new generalist implements **one-hot terrain conditioning**
+(variant 1 of the planned direction): a 2-D one-hot `[flat, crm]` code is concatenated to every
+(state, action) token, growing the transformer input 18 → 20. The label is free (each `train_mix`
+source is one terrain) and is supplied per-domain at window/rollout eval. Everything else matches the
+`crm_100` incumbent recipe (flat-based input/output normalization, equal-domain-combined-std Huber
+loss, `rollout_sel` checkpoint selection, 80 epochs × 2000 steps), with the four `crm_100` → `crm_2000`
+references swapped.
+
+To isolate the contribution of co-training, two **single-domain ablation arms** were trained with
+*identical* architecture / normalization / loss — only the train mix differs:
+
+| model | run dir suffix | train mix | checkpoint selection |
+|---|---|---|---|
+| 75/25 generalist | `…crm2000_mix25_rebal_rollout_onehot` | 75% flat / 25% CRM | combined 0.5·flat + 0.5·CRM |
+| flat-only | `…crm2000_mix00_rebal_rollout_onehot` | 100% flat | flat only |
+| CRM-only | `…crm2000_mix100_rebal_rollout_onehot` | 100% CRM | CRM only |
+
+All three keep the one-hot `[flat, crm]` head so `input_dim` stays 20 (the specialists simply always
+emit their own one-hot); each specialist keeps the off-domain rollout/val at weight 0 for monitoring
+only, so selection is in-domain.
+
+**Three-way result** (best-`rollout_sel` checkpoint, open-loop 10s rollout err/dist; off-domain = zero-shot):
+
+| model | flat | CRM |
+|---|---|---|
+| 75/25 generalist | **9.1%** | **5.8%** |
+| flat-only | 5.0% | 69.2% (zero-shot) |
+| CRM-only | 37.2% (zero-shot) | 3.7% |
+
+Headline: the one-hot generalist improves on the `crm_100` `_rebal_rollout` incumbent on **both**
+domains (flat 15.4% → 9.1% on the same flat val; CRM 9.4% → 5.8% on the larger crm_2000 val) — the 20×
+data + explicit terrain signal together largely close the flat tax (flat-only gold ≈ 5–6%) while
+pushing CRM well below 9%. Each specialist still wins its own domain (flat 5.0 < 9.1; CRM 3.7 < 5.8) and
+collapses on the other (flat-only → CRM 69%, CRM-only → flat 37%), confirming that one shared network
+*can't* serve both terrains for free: co-training buys cross-domain robustness at a ~3–4 pt
+peak-accuracy cost. (CRM eval episodes differ between crm_100 and crm_2000 val, so the CRM
+incumbent comparison is indicative, not strict.)
+
+**Eval metric (`rollout_sel` / err-dist) — the numbers above.** Once per epoch, for each terrain we draw
+**12 val-split episodes** and roll the dynamics model **open-loop** over a **10 s horizon** (1000 steps
+at dt = 0.01 s): the model's own predicted body-frame Δstate is fed back each step and integrated to a
+predicted (x, y, yaw) pose. We take the RMS xy position error vs ground truth over all rollout steps
+(`xy_rmse_m`), then divide by the mean ground-truth path length per episode (`mean_dist_m`) to get
+**`errdist = xy_rmse / mean_dist`** — a dimensionless, distance-normalized open-loop position error
+(reported as %). Normalizing by distance traveled is what makes flat and CRM comparable, since CRM
+episodes are shorter/slower (≈ 25 m vs ≈ 35 m of ground-truth path per 10 s). The scalar
+**`rollout_sel`** used for checkpoint selection is the weight-averaged 10 s `errdist` across the model's
+selection domains, and `best_val.pt` is the epoch that minimizes it (here ep 69 / 67 / 70 for
+generalist / flat-only / CRM-only). The table cells are the per-domain `errdist` at each model's
+`best_val.pt`. Also logged per epoch but **not** the headline here: one-step window loss (Huber, channel
+re-weighted) and 5 s rollout err/dist.
+
+Caveats: these are **in-loop training rollout numbers on the val split**, not Chrono closed-loop
+transfer; and `best_val` is selected by peeking at those same rollout episodes, so it carries a mild
+optimistic bias vs a fully disjoint test set (use a disjoint reference set or `last.pt` for an unbiased
+read). For downstream RL use **`best_val.pt`** on all three — it beats `last.pt` on every model (largest
+gap on the generalist, `rollout_sel` 0.074 vs 0.139).
+
+**Provenance.** Run dirs under
+`artifacts/training_runs/hmmwv_transformer_v07_tire_normal_force_omega_300g_crm2000_{mix25,mix00,mix100}_rebal_rollout_onehot/`.
+All three pushed to `main` (checkpoints via Git LFS; `last.pt` force-added past `.gitignore`): commits
+`a239ff6` (one-hot code in `model.py`/`trainer.py`/`rl/dynamics.py` + flat-only run + both ablation
+configs/scripts), `a196a29` (75/25 generalist), `7aa90c9` (CRM-only run). Processed datasets stay
+gitignored — rsync `hmmwv_tire_rigid_300g_normal_force_omega_seq_v1` +
+`hmmwv_crm_2000_normal_force_omega_seq_v1` to retrain elsewhere (and `git lfs pull` to fetch the real
+checkpoints). Trained on the local box this time; both ablation runs completed cleanly.
 
 ## Open Items / Next Steps
 
