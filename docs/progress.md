@@ -2,7 +2,7 @@
 
 A living log of the overall project state, so both of us can see at a glance what is done, what the headline numbers are, and what is next. Update this file whenever a milestone lands or a headline metric changes.
 
-Last updated: 2026-06-22 (20× CRM data collected + processed — `hmmwv_crm_2000`; next step is the flat+CRM generalist retrain on it)
+Last updated: 2026-06-25 (one-hot terrain-conditioned RL policies evaluated in Chrono across rigid-flat, CRM, and bumpy terrain; 3x3 plot and stats added)
 
 ## Status At A Glance
 
@@ -206,6 +206,38 @@ Artifacts:
 - K=16 NN eval: `artifacts/rl_runs/hmmwv_rl_15d_4090_2048env_K16/eval_tracking_model_500_val_rest_start/`
 - K=16 Chrono eval: `artifacts/rl_runs/hmmwv_rl_15d_4090_2048env_K16/chrono_eval_tracking_model_500_val_rest_start/`
 - Benchmarks: `scripts/bench_dynamics_inference.py`, `scripts/bench_context_accuracy.py`
+
+### One-Hot Terrain-Conditioned RL 3-Terrain Chrono Eval (2026-06-25)
+
+The terrain-conditioned dynamics/RL stack now has three comparable `model_500.pt` policies:
+
+- **Mixture generalist**: `artifacts/rl_runs/hmmwv_rl_15d_crm2000mix25_onehot_flat20crm20_K16_64steps_ar02_state_vxvyyr_pos2_yaw2/`
+- **Rigid-only specialist**: `artifacts/rl_runs/hmmwv_rl_15d_crm2000mix00_onehot_rigid20_K16_64steps_ar02_state_vxvyyr_pos2_yaw2/`
+- **CRM-only specialist**: `artifacts/rl_runs/hmmwv_rl_15d_crm2000mix100_onehot_crmonly20_K16_64steps_ar02_state_vxvyyr_pos2_yaw2/`
+
+All three use the same PPO architecture and `K=16`, 64 steps/env/update setup. Rigid-flat and bumpy Chrono evals were rerun with `steering_rate_limit = 0.1` after the bumpy runs showed that abrupt policy steering changes can trip Chrono solver/vehicle failures. CRM Chrono evals use the existing CRM runs without the rigid-terrain steering clamp. The plotted metric is **median XY RMSE** over 20 trajectories; the error bars are IQR (25th to 75th percentile). Lower is better.
+
+| Chrono terrain | Policy | Mean XY RMSE | Median XY RMSE | IQR XY RMSE | Early terminations |
+|---|---|---:|---:|---:|---:|
+| Rigid flat | Mixture | 0.184 m | 0.161 m | 0.130-0.214 m | 0 / 20 |
+| Rigid flat | Rigid-only | **0.158 m** | **0.143 m** | 0.116-0.166 m | 0 / 20 |
+| Rigid flat | CRM-only | 0.204 m | 0.172 m | 0.167-0.239 m | 0 / 20 |
+| CRM | Mixture | 0.164 m | 0.136 m | 0.100-0.195 m | 0 / 20 |
+| CRM | Rigid-only | 0.786 m | 0.505 m | 0.356-0.848 m | 0 / 20 |
+| CRM | CRM-only | 0.165 m | **0.131 m** | 0.120-0.209 m | 0 / 20 |
+| Bumpy | Mixture | **0.182 m** | **0.146 m** | 0.104-0.216 m | 0 / 20 |
+| Bumpy | Rigid-only | 0.242 m | 0.169 m | 0.128-0.332 m | 0 / 20 |
+| Bumpy | CRM-only | 0.231 m | 0.202 m | 0.156-0.267 m | 0 / 20 |
+
+Takeaway: the mixture policy is a strong generalist. It is close to the matching specialists on rigid-flat and CRM, and it is best on the held-out bumpy rigid-heightmap eval after steering-rate limiting. The rigid-only specialist still has the best rigid-flat median, and the CRM-only specialist still has the best CRM median, but each specialist degrades outside its terrain regime; the rigid-only policy is especially poor on CRM.
+
+Artifacts:
+
+- Plot: `artifacts/rl_runs/chrono_eval_comparisons/onehot_policy_3x3_chrono_xy_rmse_median_iqr_model500.png`
+- PDF: `artifacts/rl_runs/chrono_eval_comparisons/onehot_policy_3x3_chrono_xy_rmse_median_iqr_model500.pdf`
+- Stats JSON: `artifacts/rl_runs/chrono_eval_comparisons/onehot_policy_3x3_chrono_xy_rmse_median_iqr_model500.json`
+- CSV: `artifacts/rl_runs/chrono_eval_comparisons/onehot_policy_3x3_chrono_xy_rmse_median_iqr_model500.csv`
+- Rate-limited rigid/bumpy aggregate: `artifacts/rl_runs/chrono_eval_comparisons/rigid_flat_bumpy_3policies_steerlim010_summary.json`
 
 ## Bumpy-Terrain Transfer (2026-06-11)
 

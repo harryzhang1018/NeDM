@@ -29,13 +29,28 @@ def _strip_compile_prefix(state_dict: dict[str, torch.Tensor]) -> dict[str, torc
     }
 
 
+def resolve_dynamics_checkpoint_path(checkpoint_path: str | Path) -> Path:
+    path = Path(checkpoint_path).expanduser().resolve()
+    if not path.is_dir():
+        return path
+    for candidate in (
+        path / "checkpoints" / "best_val.pt",
+        path / "checkpoints" / "last.pt",
+        path / "best_val.pt",
+        path / "last.pt",
+    ):
+        if candidate.is_file():
+            return candidate
+    raise FileNotFoundError(f"No dynamics checkpoint found under run directory: {path}")
+
+
 def load_frozen_dynamics(
     checkpoint_path: str | Path,
     device: str | torch.device = "cuda",
     processed_dataset_dir: str | Path | None = None,
 ) -> FrozenDynamics:
     """Load a trained HMMWV dynamics checkpoint for batched inference."""
-    checkpoint_path = Path(checkpoint_path).expanduser().resolve()
+    checkpoint_path = resolve_dynamics_checkpoint_path(checkpoint_path)
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     config = checkpoint["config"]
 

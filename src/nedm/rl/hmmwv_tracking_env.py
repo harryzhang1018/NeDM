@@ -23,6 +23,15 @@ def default_env_cfg() -> dict[str, Any]:
         "dynamics_checkpoint": str(DEFAULT_RL_DYNAMICS_CHECKPOINT),
         "processed_dataset_dir": None,
         "reference_path": str(DEFAULT_RL_REFERENCE_PATH),
+        # Terrain-conditioned dynamics checkpoints need a per-env terrain id.
+        # None means infer it from reference metadata: single-domain references
+        # make every env use that terrain; multi-domain references are split
+        # evenly across available terrains.
+        "terrain": None,
+        "terrain_mix": None,
+        # Optional override for old reference files that do not carry metadata
+        # domains. Either one terrain for every ref, or one entry per reference.
+        "reference_terrain_domains": None,
         "dynamics_context_steps": None,
         "action_repeat": 5,
         "obs_history_steps": 10,
@@ -97,6 +106,10 @@ class HMMWVNeuralTrackingEnv(VecEnv):
         self.dt_s = self.dynamics.dt_s
         self.step_dt = self.dt_s * self.action_repeat
         self.context_steps = self.dynamics.context_steps
+        self.num_terrains = int(getattr(self.model, "num_terrains", 0))
+        self.terrain_names = self._terrain_names_from_metadata()
+        self.terrain_to_id = {name: index for index, name in enumerate(self.terrain_names)}
+        self._terrain_lower_to_name = {name.lower(): name for name in self.terrain_names}
         if self.obs_history_steps > self.context_steps:
             raise ValueError(
                 f"obs_history_steps={self.obs_history_steps} exceeds dynamics context {self.context_steps}"
@@ -141,6 +154,9 @@ class HMMWVNeuralTrackingEnv(VecEnv):
         self.reference_poses = torch.as_tensor(self.reference_set.poses, dtype=torch.float32, device=self.device)
         self.num_references = int(self.reference_states.shape[0])
         self.reference_length = int(self.reference_states.shape[1])
+        self.reference_terrain_ids = self._resolve_reference_terrain_ids()
+        self.env_terrain_ids = self._build_env_terrain_ids()
+        self.reference_ids_by_terrain = self._build_reference_ids_by_terrain()
         min_required_length = self.context_steps + self.action_repeat + 1
         if self.reference_length < min_required_length:
             raise ValueError(
@@ -220,6 +236,285 @@ class HMMWVNeuralTrackingEnv(VecEnv):
                 f"{len(dynamics_action_fields)} checkpoint fields)."
             )
 
+    def _terrain_names_from_metadata(self) -> list[str]:
+        if self.num_terrains <= 0:
+            return []
+        terrain_cfg = self.metadata.get("terrain_conditioning") or {}
+        terrain_names = [str(name) for name in terrain_cfg.get("terrains", [])]
+        if not terrain_names:
+            terrain_names = [str(index) for index in range(self.num_terrains)]
+        if len(terrain_names) != self.num_terrains:
+            raise ValueError(
+                "Checkpoint terrain_conditioning metadata has "
+                f"{len(terrain_names)} terrain names for num_terrains={self.num_terrains}"
+            )
+        return terrain_names
+
+    def _terrain_id_from_value(self, value: Any) -> int:
+        if self.num_terrains <= 0:
+            raise ValueError("terrain was supplied, but the dynamics checkpoint is not terrain-conditioned")
+        if isinstance(value, bool):
+            raise ValueError("terrain id must not be a bool")
+        if isinstance(value, int):
+            terrain_id = int(value)
+            if 0 <= terrain_id < self.num_terrains:
+                return terrain_id
+            raise ValueError(f"terrain id {terrain_id} is outside [0, {self.num_terrains})")
+        if isinstance(value, (list, tuple)):
+            if len(value) != self.num_terrains:
+                raise ValueError(
+                    f"one-hot terrain key has length {len(value)}, expected {self.num_terrains}"
+                )
+            values = [float(item) for item in value]
+            terrain_id = int(max(range(len(values)), key=lambda index: values[index]))
+            if values[terrain_id] <= 0.0:
+                raise ValueError(f"one-hot terrain key has no positive entry: {value!r}")
+            return terrain_id
+        name = str(value).strip()
+        if name.isdigit():
+            return self._terrain_id_from_value(int(name))
+        lower_name = name.lower()
+        if lower_name in self._terrain_lower_to_name:
+            return self.terrain_to_id[self._terrain_lower_to_name[lower_name]]
+        aliases = {
+            "rigid": "flat",
+            "rigid_terrain": "flat",
+            "flat_terrain": "flat",
+            "deformable": "crm",
+            "soft": "crm",
+            "soil": "crm",
+        }
+        alias = aliases.get(lower_name)
+        if alias is not None and alias in self._terrain_lower_to_name:
+            return self.terrain_to_id[self._terrain_lower_to_name[alias]]
+        if lower_name == "flat" and "rigid" in self._terrain_lower_to_name:
+            return self.terrain_to_id[self._terrain_lower_to_name["rigid"]]
+        raise ValueError(
+            f"Unknown terrain {value!r}; expected one of {self.terrain_names} "
+            "(aliases: rigid->flat, deformable/soft/soil->crm)."
+        )
+
+    def _looks_like_one_hot_key(self, value: tuple[Any, ...] | list[Any]) -> bool:
+        if len(value) != self.num_terrains:
+            return False
+        if not all(isinstance(item, (int, float)) and not isinstance(item, bool) for item in value):
+            return False
+        values = [float(item) for item in value]
+        return sum(item > 0.0 for item in values) == 1
+
+    def _terrain_tensor_from_value(self, value: Any, *, expected_length: int) -> torch.Tensor:
+        if isinstance(value, torch.Tensor):
+            tensor = value.to(device=self.device, dtype=torch.long)
+            if tensor.dim() == 0:
+                tensor = tensor.view(1).expand(expected_length)
+            if tensor.numel() != expected_length:
+                raise ValueError(f"terrain_ids has {tensor.numel()} entries; expected {expected_length}")
+            return tensor.reshape(expected_length)
+        if isinstance(value, (list, tuple)) and self._looks_like_one_hot_key(value):
+            ids = [self._terrain_id_from_value(value)] * expected_length
+        elif isinstance(value, (list, tuple)) and len(value) == expected_length and all(
+            isinstance(item, str) for item in value
+        ):
+            ids = [self._terrain_id_from_value(item) for item in value]
+        elif isinstance(value, (list, tuple)) and len(value) == expected_length and all(
+            isinstance(item, int) and not isinstance(item, bool) for item in value
+        ):
+            ids = [self._terrain_id_from_value(item) for item in value]
+        else:
+            ids = [self._terrain_id_from_value(value)] * expected_length
+        if len(ids) != expected_length:
+            raise ValueError(f"terrain value produced {len(ids)} entries; expected {expected_length}")
+        return torch.tensor(ids, dtype=torch.long, device=self.device)
+
+    def _expand_reference_domain_cfg(self, domains_cfg: Any) -> list[Any] | None:
+        if domains_cfg is None:
+            return None
+        if isinstance(domains_cfg, str):
+            parts = [part.strip() for part in domains_cfg.split(",") if part.strip()]
+            if len(parts) == 1:
+                return parts * self.num_references
+            if len(parts) == self.num_references:
+                return parts
+            raise ValueError(
+                "reference_terrain_domains must be one terrain name or one per reference; "
+                f"got {len(parts)} entries for {self.num_references} references"
+            )
+        if isinstance(domains_cfg, (list, tuple)):
+            if len(domains_cfg) == 1:
+                return list(domains_cfg) * self.num_references
+            if len(domains_cfg) == self.num_references:
+                return list(domains_cfg)
+            raise ValueError(
+                "reference_terrain_domains must have length 1 or num_references; "
+                f"got {len(domains_cfg)} for {self.num_references} references"
+            )
+        return [domains_cfg] * self.num_references
+
+    def _infer_reference_domain_names(self) -> list[Any] | None:
+        cfg_domains = self._expand_reference_domain_cfg(self.cfg.get("reference_terrain_domains"))
+        if cfg_domains is not None:
+            return cfg_domains
+
+        metadata = self.reference_set.metadata
+        for key in ("domains", "terrain_domains", "terrains"):
+            domains = metadata.get(key)
+            if isinstance(domains, list):
+                if len(domains) != self.num_references:
+                    raise ValueError(
+                        f"Reference metadata {key!r} has {len(domains)} entries for "
+                        f"{self.num_references} references"
+                    )
+                return list(domains)
+
+        for key in ("domain", "terrain"):
+            if key in metadata:
+                return [metadata[key]] * self.num_references
+
+        source_tokens = " ".join(
+            str(metadata.get(key, ""))
+            for key in ("source", "source_processed_root", "crm_dataset_dir")
+        )
+        source_tokens = f"{source_tokens} {self.cfg['reference_path']}".lower()
+        if "crm" in source_tokens:
+            return ["crm"] * self.num_references
+        if "rigid" in source_tokens or "flat" in source_tokens:
+            return ["flat"] * self.num_references
+        return None
+
+    def _resolve_reference_terrain_ids(self) -> torch.Tensor | None:
+        if self.num_terrains <= 0:
+            return None
+        domain_names = self._infer_reference_domain_names()
+        if domain_names is None:
+            single_terrain = self.cfg.get("terrain")
+            if single_terrain is not None and self.cfg.get("terrain_mix") is None:
+                terrain_id = self._terrain_id_from_value(single_terrain)
+                return torch.full(
+                    (self.num_references,),
+                    terrain_id,
+                    dtype=torch.long,
+                    device=self.device,
+                )
+            raise ValueError(
+                "The dynamics checkpoint is terrain-conditioned, but the reference set does not "
+                "identify each reference terrain. Use a reference set with metadata['domains'] "
+                "or set reference_terrain_domains/--reference-terrain-domains."
+            )
+        ids = [self._terrain_id_from_value(domain_name) for domain_name in domain_names]
+        return torch.tensor(ids, dtype=torch.long, device=self.device)
+
+    def _parse_terrain_mix(self, mix_cfg: Any) -> list[tuple[int, float]]:
+        if mix_cfg is None:
+            return []
+        items: list[tuple[Any, Any]] = []
+        if isinstance(mix_cfg, str):
+            for raw_part in mix_cfg.split(","):
+                part = raw_part.strip()
+                if not part:
+                    continue
+                if ":" in part:
+                    terrain_name, raw_weight = part.split(":", 1)
+                    items.append((terrain_name.strip(), float(raw_weight)))
+                else:
+                    items.append((part, 1.0))
+        elif isinstance(mix_cfg, dict):
+            items = list(mix_cfg.items())
+        elif isinstance(mix_cfg, (list, tuple)):
+            for item in mix_cfg:
+                if isinstance(item, dict):
+                    terrain_name = item.get("terrain", item.get("name"))
+                    if terrain_name is None:
+                        raise ValueError(f"terrain_mix item is missing terrain/name: {item!r}")
+                    weight = item.get("fraction", item.get("weight", item.get("count", 1.0)))
+                    items.append((terrain_name, weight))
+                else:
+                    items.append((item, 1.0))
+        else:
+            raise ValueError(f"Unsupported terrain_mix value: {mix_cfg!r}")
+        if not items:
+            raise ValueError("terrain_mix must not be empty")
+        parsed = [(self._terrain_id_from_value(name), float(weight)) for name, weight in items]
+        if any(weight < 0.0 for _, weight in parsed) or sum(weight for _, weight in parsed) <= 0.0:
+            raise ValueError(f"terrain_mix weights must be non-negative with positive sum: {mix_cfg!r}")
+        return parsed
+
+    def _allocate_env_terrain_ids(self, terrain_weights: list[tuple[int, float]]) -> torch.Tensor:
+        total_weight = sum(weight for _, weight in terrain_weights)
+        raw_counts = [self.num_envs * weight / total_weight for _, weight in terrain_weights]
+        counts = [int(math.floor(count)) for count in raw_counts]
+        remainder = self.num_envs - sum(counts)
+        order = sorted(
+            range(len(raw_counts)),
+            key=lambda index: (raw_counts[index] - counts[index], -index),
+            reverse=True,
+        )
+        for index in order[:remainder]:
+            counts[index] += 1
+        ids: list[int] = []
+        for (terrain_id, _), count in zip(terrain_weights, counts, strict=True):
+            ids.extend([terrain_id] * count)
+        if len(ids) != self.num_envs:
+            raise RuntimeError(f"internal terrain allocation error: {len(ids)} != {self.num_envs}")
+        return torch.tensor(ids, dtype=torch.long, device=self.device)
+
+    def _build_env_terrain_ids(self) -> torch.Tensor:
+        if self.num_terrains <= 0:
+            return torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        if self.cfg.get("terrain") is not None and self.cfg.get("terrain_mix") is not None:
+            raise ValueError("Set either terrain or terrain_mix, not both")
+        if self.cfg.get("terrain") is not None:
+            return self._terrain_tensor_from_value(self.cfg["terrain"], expected_length=self.num_envs)
+        mix = self._parse_terrain_mix(self.cfg.get("terrain_mix"))
+        if not mix:
+            if self.reference_terrain_ids is None:
+                raise ValueError("terrain-conditioned env could not infer terrain ids")
+            unique_reference_terrains = [
+                terrain_id
+                for terrain_id in range(self.num_terrains)
+                if bool(torch.any(self.reference_terrain_ids == terrain_id).item())
+            ]
+            if not unique_reference_terrains:
+                raise ValueError("reference set has no terrain ids")
+            mix = [(terrain_id, 1.0) for terrain_id in unique_reference_terrains]
+        return self._allocate_env_terrain_ids(mix)
+
+    def _build_reference_ids_by_terrain(self) -> dict[int, torch.Tensor]:
+        if self.num_terrains <= 0 or self.reference_terrain_ids is None:
+            return {
+                0: torch.arange(self.num_references, dtype=torch.long, device=self.device),
+            }
+        result: dict[int, torch.Tensor] = {}
+        for terrain_id in range(self.num_terrains):
+            ids = (self.reference_terrain_ids == terrain_id).nonzero(as_tuple=False).flatten()
+            if ids.numel() > 0:
+                result[terrain_id] = ids
+        active_terrain_ids = set(int(terrain_id) for terrain_id in self.env_terrain_ids.detach().cpu().tolist())
+        missing = sorted(active_terrain_ids - set(result))
+        if missing:
+            missing_names = [self.terrain_names[terrain_id] for terrain_id in missing]
+            raise ValueError(
+                f"No reference trajectories are available for active terrain(s): {missing_names}"
+            )
+        return result
+
+    def terrain_counts(self) -> dict[str, int]:
+        if self.num_terrains <= 0:
+            return {}
+        counts: dict[str, int] = {}
+        for terrain_id in self.env_terrain_ids.detach().cpu().tolist():
+            name = self.terrain_names[int(terrain_id)]
+            counts[name] = counts.get(name, 0) + 1
+        return counts
+
+    def reference_terrain_counts(self) -> dict[str, int]:
+        if self.num_terrains <= 0 or self.reference_terrain_ids is None:
+            return {}
+        counts: dict[str, int] = {}
+        for terrain_id in self.reference_terrain_ids.detach().cpu().tolist():
+            name = self.terrain_names[int(terrain_id)]
+            counts[name] = counts.get(name, 0) + 1
+        return counts
+
     def _observation_dim(self) -> int:
         state_dim = len(self.state_fields)
         action_dim = len(self.action_fields)
@@ -238,21 +533,29 @@ class HMMWVNeuralTrackingEnv(VecEnv):
         self._compute_observations()
         return self.obs_buf, self.extras
 
-    def reset_idx(self, env_ids: torch.Tensor, reference_ids: torch.Tensor | None = None) -> None:
+    def reset_idx(
+        self,
+        env_ids: torch.Tensor,
+        reference_ids: torch.Tensor | None = None,
+        terrain_ids: torch.Tensor | None = None,
+    ) -> None:
         if env_ids.numel() == 0:
             return
         env_ids = env_ids.to(device=self.device, dtype=torch.long)
-        if reference_ids is None:
-            reference_ids = torch.randint(
-                low=0,
-                high=self.num_references,
-                size=(env_ids.numel(),),
-                device=self.device,
+        if terrain_ids is not None:
+            if self.num_terrains <= 0:
+                raise ValueError("terrain_ids were supplied, but the dynamics checkpoint is not terrain-conditioned")
+            self.env_terrain_ids[env_ids] = self._terrain_tensor_from_value(
+                terrain_ids,
+                expected_length=env_ids.numel(),
             )
+        if reference_ids is None:
+            reference_ids = self._sample_reference_ids(env_ids)
         else:
             reference_ids = reference_ids.to(device=self.device, dtype=torch.long)
             if reference_ids.numel() != env_ids.numel():
                 raise ValueError("reference_ids must have the same length as env_ids")
+            self._validate_reference_ids_match_terrain(env_ids, reference_ids)
 
         self.ref_ids[env_ids] = reference_ids
         self.ref_step_buf[env_ids] = self.context_steps - 1
@@ -268,6 +571,51 @@ class HMMWVNeuralTrackingEnv(VecEnv):
         self.episode_reward_sum[env_ids] = 0.0
         self.episode_pos_error_sum[env_ids] = 0.0
         self.episode_track_reward_sum[env_ids] = 0.0
+
+    def _sample_reference_ids(self, env_ids: torch.Tensor) -> torch.Tensor:
+        if self.num_terrains <= 0:
+            return torch.randint(
+                low=0,
+                high=self.num_references,
+                size=(env_ids.numel(),),
+                device=self.device,
+            )
+        sampled = torch.empty(env_ids.numel(), dtype=torch.long, device=self.device)
+        env_terrain_ids = self.env_terrain_ids[env_ids]
+        for terrain_id_tensor in torch.unique(env_terrain_ids):
+            terrain_id = int(terrain_id_tensor.item())
+            terrain_mask = env_terrain_ids == terrain_id
+            candidates = self.reference_ids_by_terrain.get(terrain_id)
+            if candidates is None or candidates.numel() == 0:
+                terrain_name = self.terrain_names[terrain_id]
+                raise ValueError(f"No reference trajectories are available for terrain {terrain_name!r}")
+            candidate_indices = torch.randint(
+                low=0,
+                high=candidates.numel(),
+                size=(int(terrain_mask.sum().item()),),
+                device=self.device,
+            )
+            sampled[terrain_mask] = candidates[candidate_indices]
+        return sampled
+
+    def _validate_reference_ids_match_terrain(self, env_ids: torch.Tensor, reference_ids: torch.Tensor) -> None:
+        if self.num_terrains <= 0 or self.reference_terrain_ids is None:
+            return
+        ref_terrain_ids = self.reference_terrain_ids[reference_ids]
+        env_terrain_ids = self.env_terrain_ids[env_ids]
+        mismatches = (ref_terrain_ids != env_terrain_ids).nonzero(as_tuple=False).flatten()
+        if mismatches.numel() == 0:
+            return
+        first = int(mismatches[0].item())
+        env_id = int(env_ids[first].item())
+        ref_id = int(reference_ids[first].item())
+        env_terrain = self.terrain_names[int(env_terrain_ids[first].item())]
+        ref_terrain = self.terrain_names[int(ref_terrain_ids[first].item())]
+        raise ValueError(
+            "reference_ids must match each env's terrain id; "
+            f"env {env_id} uses terrain {env_terrain!r}, but reference {ref_id} is {ref_terrain!r}. "
+            "Pass matching terrain_ids or let reset_idx sample references automatically."
+        )
 
     def get_observations(self) -> tuple[torch.Tensor, dict]:
         self._compute_observations()
@@ -321,7 +669,12 @@ class HMMWVNeuralTrackingEnv(VecEnv):
     def _nn_substep(self, driver_actions: torch.Tensor) -> None:
         self.action_hist[:, -1, :] = driver_actions
         k = self.dynamics_context_steps
-        delta = self.model.predict_next_delta(self.state_hist[:, -k:, :], self.action_hist[:, -k:, :])
+        terrain = self.env_terrain_ids if self.num_terrains > 0 else None
+        delta = self.model.predict_next_delta(
+            self.state_hist[:, -k:, :],
+            self.action_hist[:, -k:, :],
+            terrain=terrain,
+        )
         next_state = self.state_hist[:, -1, :] + delta
         self.pose = self._integrate_pose(self.pose, next_state)
 

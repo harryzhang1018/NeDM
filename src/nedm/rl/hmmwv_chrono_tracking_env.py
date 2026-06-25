@@ -23,6 +23,7 @@ from nedm.hmmwv_data import (
     resolve_height_map,
     resolve_project_path,
 )
+from nedm.rl.dynamics import resolve_dynamics_checkpoint_path
 from nedm.rl.hmmwv_tracking_env import default_env_cfg, merge_env_cfg, wrap_angle
 from nedm.rl.references import ReferenceSet, load_reference_set
 from nedm.training.dataset import load_metadata
@@ -70,7 +71,7 @@ def load_checkpoint_metadata(
     checkpoint_path: str | Path,
     processed_dataset_dir: str | Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], int, float]:
-    checkpoint = torch.load(Path(checkpoint_path).expanduser().resolve(), map_location="cpu", weights_only=False)
+    checkpoint = torch.load(resolve_dynamics_checkpoint_path(checkpoint_path), map_location="cpu", weights_only=False)
     config = checkpoint["config"]
     if processed_dataset_dir is not None:
         config = dict(config)

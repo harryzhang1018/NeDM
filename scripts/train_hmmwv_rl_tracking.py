@@ -17,6 +17,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from nedm.rl.hmmwv_tracking_env import HMMWVNeuralTrackingEnv, default_env_cfg, merge_env_cfg
+from nedm.rl.dynamics import resolve_dynamics_checkpoint_path
 from nedm.rl.defaults import (
     DEFAULT_RL_DYNAMICS_CHECKPOINT,
     DEFAULT_RL_PROCESSED_DATASET_DIR,
@@ -45,6 +46,18 @@ def configure_torch_runtime(device: str, matmul_precision: str) -> None:
         allow_tf32 = matmul_precision != "highest"
         torch.backends.cuda.matmul.allow_tf32 = allow_tf32
         torch.backends.cudnn.allow_tf32 = allow_tf32
+
+
+def parse_terrain_value(value: str | None) -> str | list[float] | None:
+    if value is None:
+        return None
+    parts = [part.strip() for part in value.split(",")]
+    if len(parts) > 1:
+        try:
+            return [float(part) for part in parts]
+        except ValueError:
+            pass
+    return value
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -82,6 +95,35 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=DEFAULT_RL_REFERENCE_PATH,
         help="Compact reference set produced by build_hmmwv_rl_references.py.",
+    )
+    parser.add_argument(
+        "--terrain",
+        type=str,
+        default=None,
+        help=(
+            "Single terrain for all envs when using a terrain-conditioned dynamics checkpoint. "
+            "Use flat/rigid for one-hot [1,0], crm for [0,1], or a comma one-hot such as 1,0."
+        ),
+    )
+    parser.add_argument(
+        "--terrain-mix",
+        type=str,
+        default=None,
+        help=(
+            "Per-env terrain allocation for terrain-conditioned generalist RL, e.g. "
+            "flat:1,crm:1 for a 50/50 split or flat:0.75,crm:0.25. Each env samples refs "
+            "only from its terrain domain."
+        ),
+    )
+    parser.add_argument(
+        "--reference-terrain-domains",
+        type=str,
+        default=None,
+        help=(
+            "Override reference terrain labels for old reference files. Use one value for all refs "
+            "(flat or crm) or a comma-separated value per reference. Combined flat+CRM refs normally "
+            "carry metadata['domains'] and do not need this."
+        ),
     )
     parser.add_argument(
         "--build-references-if-missing",
@@ -214,6 +256,9 @@ def get_env_cfg(args: argparse.Namespace) -> dict[str, Any]:
             "dynamics_checkpoint": str(args.dynamics_checkpoint),
             "processed_dataset_dir": str(args.processed_dataset_dir) if args.processed_dataset_dir else None,
             "reference_path": str(args.reference_path),
+            "terrain": parse_terrain_value(args.terrain),
+            "terrain_mix": args.terrain_mix,
+            "reference_terrain_domains": args.reference_terrain_domains,
             "dynamics_context_steps": int(args.dynamics_context_steps)
             if args.dynamics_context_steps is not None
             else None,
@@ -271,6 +316,7 @@ def make_run_dir(args: argparse.Namespace) -> Path:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     args.device = resolve_device(args.device)
+    args.dynamics_checkpoint = resolve_dynamics_checkpoint_path(args.dynamics_checkpoint)
     configure_torch_runtime(args.device, args.matmul_precision)
     ensure_reference_file(args)
     run_dir = make_run_dir(args)
@@ -298,6 +344,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(f"dynamics_checkpoint={Path(env_cfg['dynamics_checkpoint']).resolve()}")
     print(f"reference_path={Path(env_cfg['reference_path']).resolve()}")
+    if env.num_terrains > 0:
+        print(f"terrain_vocab={env.terrain_names}")
+        print(f"env_terrain_counts={env.terrain_counts()}")
+        print(f"reference_terrain_counts={env.reference_terrain_counts()}")
     runner.learn(num_learning_iterations=train_cfg["runner"]["max_iterations"], init_at_random_ep_len=False)
     return 0
 

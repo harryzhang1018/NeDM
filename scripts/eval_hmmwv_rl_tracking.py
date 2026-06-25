@@ -85,7 +85,10 @@ def rollout_policy(
     num_envs = env.num_envs
     env_ids = torch.arange(num_envs, device=env.device)
     reference_ids = torch.arange(num_envs, device=env.device) % env.num_references
-    env.reset_idx(env_ids, reference_ids=reference_ids)
+    terrain_ids = None
+    if env.num_terrains > 0 and env.reference_terrain_ids is not None:
+        terrain_ids = env.reference_terrain_ids[reference_ids]
+    env.reset_idx(env_ids, reference_ids=reference_ids, terrain_ids=terrain_ids)
     obs, _ = env.get_observations()
     done_mask = torch.zeros(num_envs, dtype=torch.bool, device=env.device)
 
