@@ -19,8 +19,16 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="${REPO_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
+if [[ -z "${REPO_ROOT:-}" ]]; then
+  if [[ -n "${SLURM_JOB_ID:-}" && -n "${SLURM_SUBMIT_DIR:-}" && -d "$SLURM_SUBMIT_DIR/src/nedm" ]]; then
+    REPO_ROOT="$SLURM_SUBMIT_DIR"
+  elif [[ -d /srv/home/hzhang699/NeDM/src/nedm ]]; then
+    REPO_ROOT="/srv/home/hzhang699/NeDM"
+  else
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+  fi
+fi
 cd "$REPO_ROOT"
 
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
@@ -31,6 +39,10 @@ fi
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
 export PYTHONPATH="$REPO_ROOT/src:${PYTHONPATH:-}"
+
+echo "repo root: $REPO_ROOT"
+echo "python: $PYTHON_BIN"
+echo "PYTHONPATH: $PYTHONPATH"
 
 NUM_SHARDS="${ARM_NUM_SHARDS:-15}"
 EPISODES_PER_SHARD="${ARM_EPISODES_PER_SHARD:-256}"
