@@ -49,7 +49,7 @@ EPISODES_PER_SHARD="${ARM_EPISODES_PER_SHARD:-256}"
 MAX_STEPS="${ARM_MAX_STEPS:-500}"
 SEED_BASE="${ARM_SEED_BASE:-2026062900}"
 VALIDATION_RATIO="${ARM_VALIDATION_RATIO:-0.15}"
-OUTPUT_ROOT="${ARM_OUTPUT_ROOT:-artifacts/datasets/arm_dynamics_v1_shards}"
+OUTPUT_ROOT="${ARM_OUTPUT_ROOT:-artifacts/datasets/arm_dynamics_v2_home_reset_shards}"
 
 # Measured gripper-base EE row balancing. This caps how many free-space rows can
 # be written per Cartesian EE bin, using Chrono-measured ee_base values only.
@@ -72,7 +72,7 @@ for shard in "${shards[@]}"; do
 
   shard_name=$(printf 'shard_%03d' "$shard")
   output_dir="$OUTPUT_ROOT/$shard_name"
-  dataset_name=$(printf 'arm_dynamics_v1_s%03d' "$shard")
+  dataset_name=$(printf 'arm_dynamics_v2_home_reset_s%03d' "$shard")
   episode_prefix=$(printf 'arm_s%03d_ep' "$shard")
   seed=$((SEED_BASE + 1009 * shard))
 

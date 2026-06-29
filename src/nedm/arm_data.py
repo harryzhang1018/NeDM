@@ -41,11 +41,13 @@ Four pieces beyond a plain assemble-and-drive scene:
    PD loop. Now ``q`` lags ``qcmd`` under gravity/inertia and the transitions
    carry real dynamics.
 
-4. **Episode / termination logic + logging.** Smooth random ``qcmd`` targets
-   (doc 6.3); one CSV row per control step holding a full transition; episodes
-   truncated at ``--max-steps`` or terminated the moment a link contacts a track
-   (or self-collides), with that terminal row flagged ``collision=1`` so training
-   keeps it out of the free-space set and routes it to safety-filter debugging.
+4. **Episode / termination logic + logging.** Every episode starts from a fresh
+   Chrono scene at the imported home configuration, then follows smooth random
+   ``qcmd`` targets (doc 6.3). One CSV row per control step holds a full
+   transition; episodes truncate at ``--max-steps`` or terminate the moment a
+   link contacts a track, self-collides, hits the ground, or leaves the configured
+   joint range. The terminal row is flagged ``collision=1`` so training keeps it
+   out of the free-space set and routes it to safety-filter debugging.
 
 Run in the NeDM conda env:
 
@@ -63,6 +65,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gc
 import hashlib
 import json
 import math
@@ -104,8 +107,6 @@ ARM_MOUNT_ROT = chrono.QuatFromAngleZ(math.pi)
 CONTROL_DT = 0.02  # 50 Hz
 # Seconds to let the rig settle on its tracks before the base is pinned.
 SETTLE_TIME = 0.5
-# Seconds to ramp the arm to each episode's sampled start pose (not recorded).
-RESET_TIME = 0.6
 
 # ---------------------------------------------------------------------------
 # Collision families (Bullet supports families 0..14 in this build)
@@ -182,6 +183,10 @@ JOINT_NAMES = ["base", "shoulder", "biceps", "elbow"]
 # the +/-90 deg pitch limits do not reach, so widen these to generate self-hits.
 JOINT_LIMITS_LO = [-math.pi, -0.5 * math.pi, -0.5 * math.pi, -0.5 * math.pi]
 JOINT_LIMITS_HI = [math.pi, 0.5 * math.pi, 0.5 * math.pi, 0.5 * math.pi]
+# Actual measured q is also guarded by these limits. qcmd is clipped, but the
+# torque-driven joint can overshoot under inertia; terminate those transitions so
+# the free-space training set stays inside the intended arm range.
+JOINT_LIMIT_EPS = 1e-6
 # Max |Δqcmd| per control step (rad). ~0.04 rad at 50 Hz -> ~2 rad/s (doc 6.3
 # suggests 1-5 deg per control step).
 DQ_MAX = [0.05, 0.04, 0.04, 0.04]
@@ -552,6 +557,17 @@ def clip_pose(q, lo=JOINT_LIMITS_LO, hi=JOINT_LIMITS_HI):
     return [max(lo[i], min(hi[i], q[i])) for i in range(4)]
 
 
+def joint_limit_violation(q, lo=JOINT_LIMITS_LO, hi=JOINT_LIMITS_HI, eps=JOINT_LIMIT_EPS):
+    """Return (hit, labels) when measured joint position leaves configured range."""
+    labels = []
+    for i, value in enumerate(q):
+        if value < lo[i] - eps:
+            labels.append(f"q_{i}_lo")
+        elif value > hi[i] + eps:
+            labels.append(f"q_{i}_hi")
+    return bool(labels), labels
+
+
 class EeBinBalancer:
     """Online row balancer using measured gripper-base EE positions.
 
@@ -629,9 +645,12 @@ class EpisodeResult:
     split: str
     rows: int
     terminated_collision: bool
-    collision_kind: str | None       # "self" | "track" | "ground" | None
+    collision_kind: str | None       # "self" | "track" | "ground" | "joint_limit" | None
     collision_links: list[str]       # link(s) involved in the terminal contact
     csv_path: Path
+    start_q: list[float]
+    start_qd: list[float]
+    start_qcmd: list[float]
 
 
 CSV_FIELDS = (
@@ -641,6 +660,7 @@ CSV_FIELDS = (
     + [f"qd_{j}" for j in range(4)]
     + [f"qcmd_{j}" for j in range(4)]
     + [f"act_{j}" for j in range(4)]
+    + [f"qcmd_next_{j}" for j in range(4)]
     + [f"q_next_{j}" for j in range(4)]
     + [f"qd_next_{j}" for j in range(4)]
     + ["ee_x", "ee_y", "ee_z", "ee_base_x", "ee_base_y", "ee_base_z"]
@@ -680,17 +700,6 @@ def _substep(m113, terrain, actuator, driver_inputs, n_substeps, vis=None):
             vis.Advance(STEP_SIZE)
 
 
-def ramp_to_pose(m113, terrain, actuator, driver_inputs, target, seconds, vis=None):
-    """Linearly ramp qcmd from its current value to ``target`` over ``seconds``."""
-    start = list(actuator.qcmd)
-    n_ctrl = max(1, int(round(seconds / CONTROL_DT)))
-    n_sub = max(1, int(round(CONTROL_DT / STEP_SIZE)))
-    for k in range(1, n_ctrl + 1):
-        a = k / n_ctrl
-        actuator.qcmd = [start[i] + a * (target[i] - start[i]) for i in range(4)]
-        _substep(m113, terrain, actuator, driver_inputs, n_sub, vis=vis)
-
-
 def run_episode(m113, vehicle, terrain, gripper, actuator, collision_links,
                 episode_id, validation_ratio, rng, max_steps, output_root, vis=None,
                 ee_balancer=None):
@@ -702,13 +711,14 @@ def run_episode(m113, vehicle, terrain, gripper, actuator, collision_links,
 
     n_sub = max(1, int(round(CONTROL_DT / STEP_SIZE)))
 
-    # Ramp to a fresh, collision-free start pose (a few tries).
-    for _ in range(8):
-        start_pose = clip_pose([rng.uniform(JOINT_LIMITS_LO[i], JOINT_LIMITS_HI[i])
-                                for i in range(4)])
-        ramp_to_pose(m113, terrain, actuator, driver_inputs, start_pose, RESET_TIME, vis=vis)
-        if not arm_contact(collision_links)[0]:
-            break
+    start_q, start_qd = actuator.read_state()
+    start_qcmd = list(actuator.qcmd)
+    start_hit, start_kind, start_links, start_force = arm_contact(collision_links)
+    if start_hit:
+        raise RuntimeError(
+            f"{episode_id} fresh home state starts in {start_kind} contact "
+            f"({'+'.join(start_links)}), force={start_force:.3f} N"
+        )
 
     sampler = SmoothCommandSampler(rng)
     split = assign_split(episode_id, validation_ratio)
@@ -740,6 +750,11 @@ def run_episode(m113, vehicle, terrain, gripper, actuator, collision_links,
             ee_next = gripper_center(gripper)
             ee_next_b = base_frame.TransformPointParentToLocal(ee_next)
             hit, kind, involved, force = arm_contact(collision_links)
+            limit_hit, limit_involved = joint_limit_violation(q_next)
+            if limit_hit and not hit:
+                hit = True
+                kind = "joint_limit"
+                involved = limit_involved
 
             row = {
                 "episode_id": episode_id, "split": split, "sample_index": i,
@@ -756,6 +771,7 @@ def run_episode(m113, vehicle, terrain, gripper, actuator, collision_links,
                 row[f"qd_{j}"] = qd[j]
                 row[f"qcmd_{j}"] = qcmd[j]
                 row[f"act_{j}"] = applied[j]
+                row[f"qcmd_next_{j}"] = qcmd_next[j]
                 row[f"q_next_{j}"] = q_next[j]
                 row[f"qd_next_{j}"] = qd_next[j]
             write_row = hit or ee_balancer is None or ee_balancer.accept(ee_b)
@@ -777,11 +793,15 @@ def run_episode(m113, vehicle, terrain, gripper, actuator, collision_links,
         "terminated_collision": terminated, "collision_kind": term_kind,
         "collision_links": term_links,
         "control_dt_s": CONTROL_DT, "step_size_s": STEP_SIZE, "max_steps": max_steps,
+        "start_q": start_q, "start_qd": start_qd, "start_qcmd": start_qcmd,
     }
     with (output_root / "episodes" / f"{episode_id}.json").open("w", encoding="utf-8") as h:
         json.dump(meta, h, indent=2)
 
-    return EpisodeResult(episode_id, split, rows, terminated, term_kind, term_links, csv_path)
+    return EpisodeResult(
+        episode_id, split, rows, terminated, term_kind, term_links, csv_path,
+        start_q, start_qd, start_qcmd,
+    )
 
 
 def build_and_prepare(render=False):
@@ -821,10 +841,10 @@ def collect(episodes, max_steps, seed, output_dir, validation_ratio, render=Fals
         output_root = repo_root_from_module() / output_root
     (output_root / "episodes").mkdir(parents=True, exist_ok=True)
 
-    m113, vehicle, terrain, gripper, actuator, collision_links, vis = build_and_prepare(render)
     print(f"  collision links/families: {LINK_FAMILIES}")
     print(f"  termination on: track-shoe (family {TRACK_SHOE_FAMILY}) | self (non-adjacent links) "
-          f"| ground (box z <= {GROUND_PLANE_Z + GROUND_CONTACT_MARGIN:.2f} m)")
+          f"| ground (box z <= {GROUND_PLANE_Z + GROUND_CONTACT_MARGIN:.2f} m) | joint limits")
+    print("  episode reset: fresh Chrono scene/home pose per episode; q/qdot are measured from motors")
     ee_balancer = None
     if ee_balance_grid is not None and ee_bin_cap > 0:
         ee_balancer = EeBinBalancer(
@@ -841,6 +861,7 @@ def collect(episodes, max_steps, seed, output_dir, validation_ratio, render=Fals
     for ep in range(episodes):
         episode_id = f"{episode_prefix}_{ep:04d}"
         rng = random.Random(seed + ep)
+        m113, vehicle, terrain, gripper, actuator, collision_links, vis = build_and_prepare(render)
         result = run_episode(m113, vehicle, terrain, gripper, actuator, collision_links,
                              episode_id, validation_ratio, rng, max_steps, output_root,
                              vis=vis, ee_balancer=ee_balancer)
@@ -848,9 +869,15 @@ def collect(episodes, max_steps, seed, output_dir, validation_ratio, render=Fals
             flag = f"{result.collision_kind.upper()}-COLLISION@{'+'.join(result.collision_links)}"
         else:
             flag = "full-length"
-        print(f"  {episode_id}: {result.rows} rows, {flag}, split={result.split}")
+        start_q_fmt = ", ".join(f"{v:.3f}" for v in result.start_q)
+        start_qd_fmt = ", ".join(f"{v:.3f}" for v in result.start_qd)
+        print(f"  {episode_id}: {result.rows} rows, {flag}, split={result.split}, "
+              f"start_q=[{start_q_fmt}], start_qd=[{start_qd_fmt}]")
         results.append(result)
-        if vis is not None and not vis.Run():
+        keep_running = vis is None or vis.Run()
+        del m113, vehicle, terrain, gripper, actuator, collision_links, vis
+        gc.collect()
+        if not keep_running:
             break
 
     summary = {
@@ -867,14 +894,22 @@ def collect(episodes, max_steps, seed, output_dir, validation_ratio, render=Fals
             "contact_force_threshold_n": CONTACT_FORCE_THRESHOLD_N,
             "ground_plane_z": GROUND_PLANE_Z,
             "ground_contact_margin": GROUND_CONTACT_MARGIN,
-            "collision_links": [e[0] for e in collision_links],
+            "joint_limit_eps": JOINT_LIMIT_EPS,
+            "collision_links": list(LINK_FAMILIES),
             "arm_scale": ARM_SCALE,
+            "episode_reset": {
+                "mode": "fresh_scene_home_each_episode",
+                "random_start_pose": False,
+                "qcmd_start": [0.0, 0.0, 0.0, 0.0],
+                "state_source": "ChLinkMotorRotationTorque.GetMotorAngle/GetMotorAngleDt",
+            },
             "ee_balance": ee_balancer.summary() if ee_balancer else {"enabled": False},
         },
         "episodes": [
             {"episode_id": r.episode_id, "split": r.split, "rows": r.rows,
              "terminated_collision": r.terminated_collision,
              "collision_kind": r.collision_kind, "collision_links": r.collision_links,
+             "start_q": r.start_q, "start_qd": r.start_qd, "start_qcmd": r.start_qcmd,
              "csv_path": str(r.csv_path.relative_to(output_root))}
             for r in results
         ],
@@ -886,10 +921,11 @@ def collect(episodes, max_steps, seed, output_dir, validation_ratio, render=Fals
     n_track = sum(1 for r in results if r.collision_kind == "track")
     n_ground = sum(1 for r in results if r.collision_kind == "ground")
     n_self = sum(1 for r in results if r.collision_kind == "self")
+    n_limit = sum(1 for r in results if r.collision_kind == "joint_limit")
     n_full = sum(1 for r in results if not r.terminated_collision)
     print(f"wrote {len(results)} episodes, {total} transitions "
           f"(terminated by: {n_track} track, {n_ground} ground, {n_self} self; "
-          f"{n_full} full-length) to {output_root}")
+          f"{n_limit} joint-limit; {n_full} full-length) to {output_root}")
     return results
 
 
