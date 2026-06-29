@@ -1,0 +1,89 @@
+{
+  "steering_rate_limit": 0.1,
+  "jobs": [
+    {
+      "run": "mixture",
+      "eval": "rigid_flat",
+      "output_dir": "/home/harry/NeDM/artifacts/rl_runs/hmmwv_rl_15d_crm2000mix25_onehot_flat20crm20_K16_64steps_ar02_state_vxvyyr_pos2_yaw2/chrono_eval_tracking_model_500_rigid_val_rest_start_steerlim010",
+      "log_path": "/home/harry/NeDM/artifacts/rl_runs/hmmwv_rl_15d_crm2000mix25_onehot_flat20crm20_K16_64steps_ar02_state_vxvyyr_pos2_yaw2/chrono_eval_tracking_model_500_rigid_val_rest_start_steerlim010/eval_stdout.log",
+      "num_rollouts": 20,
+      "early_count": 0,
+      "early_references": [],
+      "raw_mean_xy_rmse_m": 0.18407726660370827,
+      "raw_median_xy_rmse_m": 0.1614520624279976,
+      "success_count": 20,
+      "success_mean_xy_rmse_m": 0.18407726660370827,
+      "success_median_xy_rmse_m": 0.1614520624279976
+    },
+    {
+      "run": "mixture",
+      "eval": "bumpy",
+      "output_dir": "/home/harry/NeDM/artifacts/rl_runs/hmmwv_rl_15d_crm2000mix25_onehot_flat20crm20_K16_64steps_ar02_state_vxvyyr_pos2_yaw2/chrono_bumpy_eval_model_500_val20_rest_start_steerlim010",
+      "log_path": "/home/harry/NeDM/artifacts/rl_runs/hmmwv_rl_15d_crm2000mix25_onehot_flat20crm20_K16_64steps_ar02_state_vxvyyr_pos2_yaw2/chrono_bumpy_eval_model_500_val20_rest_start_steerlim010/eval_stdout.log",
+      "num_rollouts": 20,
+      "early_count": 0,
+      "early_references": [],
+      "raw_mean_xy_rmse_m": 0.1819959867745638,
+      "raw_median_xy_rmse_m": 0.1460486277937889,
+      "success_count": 20,
+      "success_mean_xy_rmse_m": 0.1819959867745638,
+      "success_median_xy_rmse_m": 0.1460486277937889
+    },
+    {
+      "run": "crm_only",
+      "eval": "rigid_flat",
+      "output_dir": "/home/harry/NeDM/artifacts/rl_runs/hmmwv_rl_15d_crm2000mix100_onehot_crmonly20_K16_64steps_ar02_state_vxvyyr_pos2_yaw2/chrono_eval_tracking_model_500_rigid_val_rest_start_steerlim010",
+      "log_path": "/home/harry/NeDM/artifacts/rl_runs/hmmwv_rl_15d_crm2000mix100_onehot_crmonly20_K16_64steps_ar02_state_vxvyyr_pos2_yaw2/chrono_eval_tracking_model_500_rigid_val_rest_start_steerlim010/eval_stdout.log",
+      "num_rollouts": 20,
+      "early_count": 0,
+      "early_references": [],
+      "raw_mean_xy_rmse_m": 0.20397835038602352,
+      "raw_median_xy_rmse_m": 0.17203189432621002,
+      "success_count": 20,
+      "success_mean_xy_rmse_m": 0.20397835038602352,
+      "success_median_xy_rmse_m": 0.17203189432621002
+    },
+    {
+      "run": "crm_only",
+      "eval": "bumpy",
+      "output_dir": "/home/harry/NeDM/artifacts/rl_runs/hmmwv_rl_15d_crm2000mix100_onehot_crmonly20_K16_64steps_ar02_state_vxvyyr_pos2_yaw2/chrono_bumpy_eval_model_500_val20_rest_start_steerlim010",
+      "log_path": "/home/harry/NeDM/artifacts/rl_runs/hmmwv_rl_15d_crm2000mix100_onehot_crmonly20_K16_64steps_ar02_state_vxvyyr_pos2_yaw2/chrono_bumpy_eval_model_500_val20_rest_start_steerlim010/eval_stdout.log",
+      "num_rollouts": 20,
+      "early_count": 0,
+      "early_references": [],
+      "raw_mean_xy_rmse_m": 0.23060459569096564,
+      "raw_median_xy_rmse_m": 0.20243734866380692,
+      "success_count": 20,
+      "success_mean_xy_rmse_m": 0.23060459569096564,
+      "success_median_xy_rmse_m": 0.20243734866380692
+    },
+    {
+      "run": "rigid_only",
+      "eval": "rigid_flat",
+      "output_dir": "/home/harry/NeDM/artifacts/rl_runs/hmmwv_rl_15d_crm2000mix00_onehot_rigid20_K16_64steps_ar02_state_vxvyyr_pos2_yaw2/chrono_eval_tracking_model_500_rigid_val_rest_start_steerlim010",
+      "log_path": "/home/harry/NeDM/artifacts/rl_runs/hmmwv_rl_15d_crm2000mix00_onehot_rigid20_K16_64steps_ar02_state_vxvyyr_pos2_yaw2/chrono_eval_tracking_model_500_rigid_val_rest_start_steerlim010/eval_stdout.log",
+      "num_rollouts": 20,
+      "early_count": 0,
+      "early_references": [],
+      "raw_mean_xy_rmse_m": 0.15781481750309467,
+      "raw_median_xy_rmse_m": 0.14322590827941895,
+      "success_count": 20,
+      "success_mean_xy_rmse_m": 0.15781481750309467,
+      "success_median_xy_rmse_m": 0.14322590827941895
+    },
+    {
+      "run": "rigid_only",
+      "eval": "bumpy",
+      "output_dir": "/home/harry/NeDM/artifacts/rl_runs/hmmwv_rl_15d_crm2000mix00_onehot_rigid20_K16_64steps_ar02_state_vxvyyr_pos2_yaw2/chrono_bumpy_eval_model_500_val20_rest_start_steerlim010",
+      "log_path": "/home/harry/NeDM/artifacts/rl_runs/hmmwv_rl_15d_crm2000mix00_onehot_rigid20_K16_64steps_ar02_state_vxvyyr_pos2_yaw2/chrono_bumpy_eval_model_500_val20_rest_start_steerlim010/eval_stdout.log",
+      "num_rollouts": 20,
+      "early_count": 0,
+      "early_references": [],
+      "raw_mean_xy_rmse_m": 0.24186988435685636,
+      "raw_median_xy_rmse_m": 0.16939907521009445,
+      "success_count": 20,
+      "success_mean_xy_rmse_m": 0.24186988435685636,
+      "success_median_xy_rmse_m": 0.16939907521009445
+    }
+  ]
+}
