@@ -568,74 +568,6 @@ def joint_limit_violation(q, lo=JOINT_LIMITS_LO, hi=JOINT_LIMITS_HI, eps=JOINT_L
     return bool(labels), labels
 
 
-class EeBinBalancer:
-    """Online row balancer using measured gripper-base EE positions.
-
-    This affects which free-space transitions are written, not the Chrono
-    simulation itself. Terminal collision rows are still written by the episode
-    driver so safety failures are not hidden.
-    """
-
-    def __init__(self, grid, bin_cap, bounds_lo, bounds_hi):
-        self.grid = tuple(grid)
-        self.bin_cap = int(bin_cap)
-        self.bounds_lo = tuple(bounds_lo)
-        self.bounds_hi = tuple(bounds_hi)
-        self.counts = {}
-        self.accepted = 0
-        self.rejected = 0
-        self.out_of_bounds = 0
-
-    @property
-    def enabled(self):
-        return self.bin_cap > 0 and all(n > 0 for n in self.grid)
-
-    def _bin_index(self, ee_base):
-        vals = (ee_base.x, ee_base.y, ee_base.z)
-        idx = []
-        for value, lo, hi, n in zip(vals, self.bounds_lo, self.bounds_hi, self.grid):
-            if value < lo or value > hi:
-                return None
-            frac = (value - lo) / max(hi - lo, 1e-12)
-            idx.append(min(n - 1, max(0, int(frac * n))))
-        return tuple(idx)
-
-    def accept(self, ee_base):
-        if not self.enabled:
-            self.accepted += 1
-            return True
-        idx = self._bin_index(ee_base)
-        if idx is None:
-            # Bounds are an operator hint, not a hard data-validity rule.
-            self.out_of_bounds += 1
-            self.accepted += 1
-            return True
-        count = self.counts.get(idx, 0)
-        if count >= self.bin_cap:
-            self.rejected += 1
-            return False
-        self.counts[idx] = count + 1
-        self.accepted += 1
-        return True
-
-    def summary(self):
-        if not self.enabled:
-            return {"enabled": False}
-        total_bins = self.grid[0] * self.grid[1] * self.grid[2]
-        return {
-            "enabled": True,
-            "grid": list(self.grid),
-            "bin_cap": self.bin_cap,
-            "bounds_lo": list(self.bounds_lo),
-            "bounds_hi": list(self.bounds_hi),
-            "accepted_rows": self.accepted,
-            "rejected_rows": self.rejected,
-            "out_of_bounds_rows": self.out_of_bounds,
-            "occupied_bins": len(self.counts),
-            "total_bins": total_bins,
-        }
-
-
 # ---------------------------------------------------------------------------
 # Episode driver
 # ---------------------------------------------------------------------------
@@ -701,8 +633,7 @@ def _substep(m113, terrain, actuator, driver_inputs, n_substeps, vis=None):
 
 
 def run_episode(m113, vehicle, terrain, gripper, actuator, collision_links,
-                episode_id, validation_ratio, rng, max_steps, output_root, vis=None,
-                ee_balancer=None):
+                episode_id, validation_ratio, rng, max_steps, output_root, vis=None):
     """Run one arm-only episode and write its transition CSV."""
     driver_inputs = veh.DriverInputs()
     driver_inputs.m_throttle = 0.0
@@ -774,10 +705,8 @@ def run_episode(m113, vehicle, terrain, gripper, actuator, collision_links,
                 row[f"qcmd_next_{j}"] = qcmd_next[j]
                 row[f"q_next_{j}"] = q_next[j]
                 row[f"qd_next_{j}"] = qd_next[j]
-            write_row = hit or ee_balancer is None or ee_balancer.accept(ee_b)
-            if write_row:
-                writer.writerow(row)
-                rows += 1
+            writer.writerow(row)
+            rows += 1
 
             if hit:
                 terminated = True
@@ -832,8 +761,7 @@ def build_and_prepare(render=False):
 
 
 def collect(episodes, max_steps, seed, output_dir, validation_ratio, render=False,
-            dataset_name="arm_dynamics_v1", episode_prefix="arm_ep",
-            ee_balance_grid=None, ee_bin_cap=0, ee_bounds_lo=None, ee_bounds_hi=None):
+            dataset_name="arm_dynamics_v1", episode_prefix="arm_ep"):
     import random
 
     output_root = Path(output_dir)
@@ -845,17 +773,7 @@ def collect(episodes, max_steps, seed, output_dir, validation_ratio, render=Fals
     print(f"  termination on: track-shoe (family {TRACK_SHOE_FAMILY}) | self (non-adjacent links) "
           f"| ground (box z <= {GROUND_PLANE_Z + GROUND_CONTACT_MARGIN:.2f} m) | joint limits")
     print("  episode reset: fresh Chrono scene/home pose per episode; q/qdot are measured from motors")
-    ee_balancer = None
-    if ee_balance_grid is not None and ee_bin_cap > 0:
-        ee_balancer = EeBinBalancer(
-            ee_balance_grid,
-            ee_bin_cap,
-            ee_bounds_lo or (-6.0, -6.0, -5.5),
-            ee_bounds_hi or (6.0, 6.0, 1.5),
-        )
-        print("  EE row balancing: "
-              f"grid={ee_balancer.grid}, cap/bin={ee_balancer.bin_cap}, "
-              f"bounds={ee_balancer.bounds_lo}->{ee_balancer.bounds_hi}")
+    print("  row recording: complete trajectories; no online EE filtering")
 
     results = []
     for ep in range(episodes):
@@ -864,7 +782,7 @@ def collect(episodes, max_steps, seed, output_dir, validation_ratio, render=Fals
         m113, vehicle, terrain, gripper, actuator, collision_links, vis = build_and_prepare(render)
         result = run_episode(m113, vehicle, terrain, gripper, actuator, collision_links,
                              episode_id, validation_ratio, rng, max_steps, output_root,
-                             vis=vis, ee_balancer=ee_balancer)
+                             vis=vis)
         if result.terminated_collision:
             flag = f"{result.collision_kind.upper()}-COLLISION@{'+'.join(result.collision_links)}"
         else:
@@ -903,7 +821,7 @@ def collect(episodes, max_steps, seed, output_dir, validation_ratio, render=Fals
                 "qcmd_start": [0.0, 0.0, 0.0, 0.0],
                 "state_source": "ChLinkMotorRotationTorque.GetMotorAngle/GetMotorAngleDt",
             },
-            "ee_balance": ee_balancer.summary() if ee_balancer else {"enabled": False},
+            "row_filter": {"enabled": False, "mode": "write_all_transitions"},
         },
         "episodes": [
             {"episode_id": r.episode_id, "split": r.split, "rows": r.rows,
@@ -929,24 +847,6 @@ def collect(episodes, max_steps, seed, output_dir, validation_ratio, render=Fals
     return results
 
 
-def _parse_csv_tuple(value, cast, expected_len, name):
-    parts = [p.strip() for p in value.split(",")]
-    if len(parts) != expected_len:
-        raise argparse.ArgumentTypeError(f"{name} must have {expected_len} comma-separated values")
-    try:
-        return tuple(cast(p) for p in parts)
-    except ValueError as exc:
-        raise argparse.ArgumentTypeError(f"invalid {name}: {value}") from exc
-
-
-def parse_int3(value):
-    return _parse_csv_tuple(value, int, 3, "int3")
-
-
-def parse_float3(value):
-    return _parse_csv_tuple(value, float, 3, "float3")
-
-
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Collect arm-only dynamics data (reach mode).")
     parser.add_argument("--episodes", type=int, default=4)
@@ -959,17 +859,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--episode-prefix", default="arm_ep",
                         help="Prefix used for episode IDs inside this output shard.")
     parser.add_argument("--validation-ratio", type=float, default=0.15)
-    parser.add_argument("--ee-balance-grid", type=parse_int3, default=None,
-                        metavar="NX,NY,NZ",
-                        help="Enable measured gripper-base EE row balancing with this grid.")
-    parser.add_argument("--ee-bin-cap", type=int, default=0,
-                        help="Max free-space rows written per EE grid bin; <=0 disables balancing.")
-    parser.add_argument("--ee-bounds-lo", type=parse_float3, default=(-6.0, -6.0, -5.5),
-                        metavar="X,Y,Z",
-                        help="Lower gripper-base EE bounds for row balancing.")
-    parser.add_argument("--ee-bounds-hi", type=parse_float3, default=(6.0, 6.0, 1.5),
-                        metavar="X,Y,Z",
-                        help="Upper gripper-base EE bounds for row balancing.")
     parser.add_argument("--render", action="store_true",
                         help="Open the Irrlicht viewer (debug; runs one window).")
     return parser
@@ -981,9 +870,7 @@ def main(argv=None):
     collect(episodes=args.episodes, max_steps=args.max_steps, seed=args.seed,
             output_dir=args.output_dir, validation_ratio=args.validation_ratio,
             render=args.render, dataset_name=args.dataset_name,
-            episode_prefix=args.episode_prefix, ee_balance_grid=args.ee_balance_grid,
-            ee_bin_cap=args.ee_bin_cap, ee_bounds_lo=args.ee_bounds_lo,
-            ee_bounds_hi=args.ee_bounds_hi)
+            episode_prefix=args.episode_prefix)
     return 0
 
 

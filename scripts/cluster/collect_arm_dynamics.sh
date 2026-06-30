@@ -49,14 +49,7 @@ EPISODES_PER_SHARD="${ARM_EPISODES_PER_SHARD:-256}"
 MAX_STEPS="${ARM_MAX_STEPS:-500}"
 SEED_BASE="${ARM_SEED_BASE:-2026062900}"
 VALIDATION_RATIO="${ARM_VALIDATION_RATIO:-0.15}"
-OUTPUT_ROOT="${ARM_OUTPUT_ROOT:-artifacts/datasets/arm_dynamics_v2_home_reset_shards}"
-
-# Measured gripper-base EE row balancing. This caps how many free-space rows can
-# be written per Cartesian EE bin, using Chrono-measured ee_base values only.
-EE_BALANCE_GRID="${ARM_EE_BALANCE_GRID:-8,8,6}"
-EE_BIN_CAP="${ARM_EE_BIN_CAP:-512}"
-EE_BOUNDS_LO="${ARM_EE_BOUNDS_LO:--6.0,-6.0,-5.5}"
-EE_BOUNDS_HI="${ARM_EE_BOUNDS_HI:-6.0,6.0,1.5}"
+OUTPUT_ROOT="${ARM_OUTPUT_ROOT:-artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards}"
 
 if [[ -n "${SLURM_ARRAY_TASK_ID:-}" ]]; then
   shards=("$SLURM_ARRAY_TASK_ID")
@@ -72,7 +65,7 @@ for shard in "${shards[@]}"; do
 
   shard_name=$(printf 'shard_%03d' "$shard")
   output_dir="$OUTPUT_ROOT/$shard_name"
-  dataset_name=$(printf 'arm_dynamics_v2_home_reset_s%03d' "$shard")
+  dataset_name=$(printf 'arm_dynamics_v3_home_reset_fulltraj_s%03d' "$shard")
   episode_prefix=$(printf 'arm_s%03d_ep' "$shard")
   seed=$((SEED_BASE + 1009 * shard))
 
@@ -83,7 +76,7 @@ for shard in "${shards[@]}"; do
 
   echo "collecting arm shard $shard -> $output_dir"
   echo "  episodes=$EPISODES_PER_SHARD max_steps=$MAX_STEPS seed=$seed"
-  echo "  EE balance: grid=$EE_BALANCE_GRID cap/bin=$EE_BIN_CAP bounds=$EE_BOUNDS_LO->$EE_BOUNDS_HI"
+  echo "  row recording: complete trajectories from home reset to termination"
 
   "$PYTHON_BIN" -m nedm.arm_data \
     --episodes "$EPISODES_PER_SHARD" \
@@ -92,11 +85,7 @@ for shard in "${shards[@]}"; do
     --output-dir "$output_dir" \
     --dataset-name "$dataset_name" \
     --episode-prefix "$episode_prefix" \
-    --validation-ratio "$VALIDATION_RATIO" \
-    --ee-balance-grid="$EE_BALANCE_GRID" \
-    --ee-bin-cap "$EE_BIN_CAP" \
-    --ee-bounds-lo="$EE_BOUNDS_LO" \
-    --ee-bounds-hi="$EE_BOUNDS_HI"
+    --validation-ratio "$VALIDATION_RATIO"
 
   echo "completed arm shard $shard -> $output_dir"
 done
