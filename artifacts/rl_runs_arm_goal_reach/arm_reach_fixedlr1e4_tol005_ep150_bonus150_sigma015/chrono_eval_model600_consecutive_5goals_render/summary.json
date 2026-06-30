@@ -1,0 +1,224 @@
+{
+  "backend": "chrono_arm_reaching",
+  "policy_checkpoint": "/home/harry/NeDM/rl_runs/arm_goal_reach/arm_reach_fixedlr1e4_tol005_ep150_bonus150_sigma015/model_1200.pt",
+  "pre_roll_time_s": 6.0,
+  "consecutive_goals": true,
+  "requested_goals": 10,
+  "num_rollouts": 10,
+  "success_rate": 1.0,
+  "reached_tolerance_rate": 1.0,
+  "mean_final_ee_error_m": 0.035869862884283066,
+  "mean_min_ee_error_m": 0.035869862884283066,
+  "rollouts": [
+    {
+      "steps": 57,
+      "done_reason": "success",
+      "success": true,
+      "reached_tolerance": true,
+      "final_ee_error_m": 0.03509735316038132,
+      "min_ee_error_m": 0.03509735316038132,
+      "mean_ee_error_m": 1.1406973600387573,
+      "reward_sum": 159.68601989746094,
+      "unsafe_action_rate": 0.0,
+      "min_clearance_m": 0.13348454236984253,
+      "goal_base": [
+        4.701427936553955,
+        -2.7252984046936035,
+        -0.36484086513519287
+      ],
+      "contact_kind": null,
+      "contact_links": [],
+      "joint_limit_labels": [],
+      "rollout_index": 0
+    },
+    {
+      "steps": 32,
+      "done_reason": "success",
+      "success": true,
+      "reached_tolerance": true,
+      "final_ee_error_m": 0.03071918897330761,
+      "min_ee_error_m": 0.03071918897330761,
+      "mean_ee_error_m": 2.742689609527588,
+      "reward_sum": 151.54324340820312,
+      "unsafe_action_rate": 0.0,
+      "min_clearance_m": 0.45728975534439087,
+      "goal_base": [
+        4.961559295654297,
+        1.7998729944229126,
+        -2.1058273315429688
+      ],
+      "contact_kind": null,
+      "contact_links": [],
+      "joint_limit_labels": [],
+      "rollout_index": 1
+    },
+    {
+      "steps": 67,
+      "done_reason": "success",
+      "success": true,
+      "reached_tolerance": true,
+      "final_ee_error_m": 0.038118381053209305,
+      "min_ee_error_m": 0.038118381053209305,
+      "mean_ee_error_m": 1.0957026481628418,
+      "reward_sum": 163.55862426757812,
+      "unsafe_action_rate": 0.0,
+      "min_clearance_m": 0.4575386047363281,
+      "goal_base": [
+        4.047614097595215,
+        -1.921729326248169,
+        -3.6736114025115967
+      ],
+      "contact_kind": null,
+      "contact_links": [],
+      "joint_limit_labels": [],
+      "rollout_index": 2
+    },
+    {
+      "steps": 33,
+      "done_reason": "success",
+      "success": true,
+      "reached_tolerance": true,
+      "final_ee_error_m": 0.038949910551309586,
+      "min_ee_error_m": 0.038949910551309586,
+      "mean_ee_error_m": 0.5761715173721313,
+      "reward_sum": 155.90585327148438,
+      "unsafe_action_rate": 0.0,
+      "min_clearance_m": 0.49574315547943115,
+      "goal_base": [
+        3.4678046703338623,
+        -2.5433640480041504,
+        -4.041749954223633
+      ],
+      "contact_kind": null,
+      "contact_links": [],
+      "joint_limit_labels": [],
+      "rollout_index": 3
+    },
+    {
+      "steps": 30,
+      "done_reason": "success",
+      "success": true,
+      "reached_tolerance": true,
+      "final_ee_error_m": 0.030498430132865906,
+      "min_ee_error_m": 0.030498430132865906,
+      "mean_ee_error_m": 1.6106677055358887,
+      "reward_sum": 152.01541137695312,
+      "unsafe_action_rate": 0.0,
+      "min_clearance_m": 0.46990734338760376,
+      "goal_base": [
+        2.54032039642334,
+        -4.427926063537598,
+        -2.5305533409118652
+      ],
+      "contact_kind": null,
+      "contact_links": [],
+      "joint_limit_labels": [],
+      "rollout_index": 4
+    },
+    {
+      "steps": 40,
+      "done_reason": "success",
+      "success": true,
+      "reached_tolerance": true,
+      "final_ee_error_m": 0.02468712441623211,
+      "min_ee_error_m": 0.02468712441623211,
+      "mean_ee_error_m": 5.702786922454834,
+      "reward_sum": 151.25050354003906,
+      "unsafe_action_rate": 0.0,
+      "min_clearance_m": 0.44266337156295776,
+      "goal_base": [
+        2.6863181591033936,
+        4.385725498199463,
+        -2.6051714420318604
+      ],
+      "contact_kind": null,
+      "contact_links": [],
+      "joint_limit_labels": [],
+      "rollout_index": 5
+    },
+    {
+      "steps": 76,
+      "done_reason": "success",
+      "success": true,
+      "reached_tolerance": true,
+      "final_ee_error_m": 0.04886145517230034,
+      "min_ee_error_m": 0.04886145517230034,
+      "mean_ee_error_m": 1.9337286949157715,
+      "reward_sum": 154.98129272460938,
+      "unsafe_action_rate": 0.0,
+      "min_clearance_m": 0.42235174775123596,
+      "goal_base": [
+        5.053736686706543,
+        -0.3576076924800873,
+        -2.4676475524902344
+      ],
+      "contact_kind": null,
+      "contact_links": [],
+      "joint_limit_labels": [],
+      "rollout_index": 6
+    },
+    {
+      "steps": 90,
+      "done_reason": "success",
+      "success": true,
+      "reached_tolerance": true,
+      "final_ee_error_m": 0.04397163167595863,
+      "min_ee_error_m": 0.04397163167595863,
+      "mean_ee_error_m": 1.7962242364883423,
+      "reward_sum": 158.50369262695312,
+      "unsafe_action_rate": 0.0,
+      "min_clearance_m": 0.4185246229171753,
+      "goal_base": [
+        2.694244623184204,
+        4.791088104248047,
+        -0.7715616226196289
+      ],
+      "contact_kind": null,
+      "contact_links": [],
+      "joint_limit_labels": [],
+      "rollout_index": 7
+    },
+    {
+      "steps": 49,
+      "done_reason": "success",
+      "success": true,
+      "reached_tolerance": true,
+      "final_ee_error_m": 0.04723404720425606,
+      "min_ee_error_m": 0.04723404720425606,
+      "mean_ee_error_m": 5.487120151519775,
+      "reward_sum": 151.37583923339844,
+      "unsafe_action_rate": 0.0,
+      "min_clearance_m": 0.4820558428764343,
+      "goal_base": [
+        0.9473903179168701,
+        -4.486878871917725,
+        -3.567992925643921
+      ],
+      "contact_kind": null,
+      "contact_links": [],
+      "joint_limit_labels": [],
+      "rollout_index": 8
+    },
+    {
+      "steps": 71,
+      "done_reason": "success",
+      "success": true,
+      "reached_tolerance": true,
+      "final_ee_error_m": 0.020561106503009796,
+      "min_ee_error_m": 0.020561106503009796,
+      "mean_ee_error_m": 2.645223617553711,
+      "reward_sum": 154.52728271484375,
+      "unsafe_action_rate": 0.0,
+      "min_clearance_m": 0.4731711149215698,
+      "goal_base": [
+        4.2632622718811035,
+        1.7472457885742188,
+        -3.614677667617798
+      ],
+      "contact_kind": null,
+      "contact_links": [],
+      "joint_limit_labels": [],
+      "rollout_index": 9
+    }
+  ]
+}

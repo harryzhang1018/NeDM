@@ -1,0 +1,161 @@
+{
+  "dataset_name": "arm_dynamics_v3_home_reset_fulltraj_s000+arm_dynamics_v3_home_reset_fulltraj_s001+arm_dynamics_v3_home_reset_fulltraj_s002+arm_dynamics_v3_home_reset_fulltraj_s003+arm_dynamics_v3_home_reset_fulltraj_s004+arm_dynamics_v3_home_reset_fulltraj_s005+arm_dynamics_v3_home_reset_fulltraj_s006+arm_dynamics_v3_home_reset_fulltraj_s007+arm_dynamics_v3_home_reset_fulltraj_s008+arm_dynamics_v3_home_reset_fulltraj_s009+arm_dynamics_v3_home_reset_fulltraj_s010+arm_dynamics_v3_home_reset_fulltraj_s011+arm_dynamics_v3_home_reset_fulltraj_s012+arm_dynamics_v3_home_reset_fulltraj_s013+arm_dynamics_v3_home_reset_fulltraj_s014",
+  "raw_dataset_root": "/home/harry/NeDM/artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards/shard_000",
+  "raw_dataset_roots": [
+    "/home/harry/NeDM/artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards/shard_000",
+    "/home/harry/NeDM/artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards/shard_001",
+    "/home/harry/NeDM/artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards/shard_002",
+    "/home/harry/NeDM/artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards/shard_003",
+    "/home/harry/NeDM/artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards/shard_004",
+    "/home/harry/NeDM/artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards/shard_005",
+    "/home/harry/NeDM/artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards/shard_006",
+    "/home/harry/NeDM/artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards/shard_007",
+    "/home/harry/NeDM/artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards/shard_008",
+    "/home/harry/NeDM/artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards/shard_009",
+    "/home/harry/NeDM/artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards/shard_010",
+    "/home/harry/NeDM/artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards/shard_011",
+    "/home/harry/NeDM/artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards/shard_012",
+    "/home/harry/NeDM/artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards/shard_013",
+    "/home/harry/NeDM/artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards/shard_014"
+  ],
+  "processed_at_utc": "2026-06-30T15:16:13.989953+00:00",
+  "dt_s": 0.02,
+  "state_field_preset": "default",
+  "state_fields": [
+    "q_0",
+    "q_1",
+    "q_2",
+    "q_3",
+    "qd_0",
+    "qd_1",
+    "qd_2",
+    "qd_3",
+    "qcmd_0",
+    "qcmd_1",
+    "qcmd_2",
+    "qcmd_3",
+    "ee_base_x",
+    "ee_base_y",
+    "ee_base_z"
+  ],
+  "action_fields": [
+    "act_0",
+    "act_1",
+    "act_2",
+    "act_3"
+  ],
+  "target_fields": [
+    "delta_q_0",
+    "delta_q_1",
+    "delta_q_2",
+    "delta_q_3",
+    "delta_qd_0",
+    "delta_qd_1",
+    "delta_qd_2",
+    "delta_qd_3",
+    "delta_qcmd_0",
+    "delta_qcmd_1",
+    "delta_qcmd_2",
+    "delta_qcmd_3",
+    "delta_ee_base_x",
+    "delta_ee_base_y",
+    "delta_ee_base_z"
+  ],
+  "rollout_fields": [
+    "ee_base_x",
+    "ee_base_y",
+    "ee_base_z"
+  ],
+  "splits": {
+    "train": {
+      "episode_count": 12716,
+      "transition_count": 763886
+    },
+    "val": {
+      "episode_count": 2284,
+      "transition_count": 141754
+    }
+  },
+  "normalization": {
+    "state_mean": [
+      -0.024760834872722626,
+      0.4557596743106842,
+      -0.07330572605133057,
+      -0.011920099146664143,
+      -0.007952729240059853,
+      -0.009648996405303478,
+      -0.07460014522075653,
+      -0.020831547677516937,
+      -0.024093613028526306,
+      0.4841422140598297,
+      -0.08963287621736526,
+      -0.0147291524335742,
+      1.983773112297058,
+      -0.04459255933761597,
+      -2.5369536876678467
+    ],
+    "state_std": [
+      1.311037302017212,
+      0.47406643629074097,
+      0.6568617224693298,
+      0.6792351007461548,
+      2.820650100708008,
+      1.3224046230316162,
+      1.231823205947876,
+      1.1100162267684937,
+      1.1818530559539795,
+      0.4931619167327881,
+      0.6771271228790283,
+      0.6941765546798706,
+      3.018113374710083,
+      2.4025795459747314,
+      1.9414674043655396
+    ],
+    "action_mean": [
+      -0.00010426965309306979,
+      -0.003246321575716138,
+      -0.0004998792428523302,
+      -9.160155605059117e-05
+    ],
+    "action_std": [
+      0.0409994013607502,
+      0.027863889932632446,
+      0.02894767001271248,
+      0.028769081458449364
+    ],
+    "target_mean": [
+      -0.0001556356146465987,
+      -0.0005025526043027639,
+      -0.0015361243858933449,
+      -0.00035317259607836604,
+      0.00030412813066504896,
+      -0.026371948421001434,
+      0.0068533956073224545,
+      0.001188838854432106,
+      -0.00010426966764498502,
+      -0.003246321575716138,
+      -0.0004998793010599911,
+      -9.160156332654878e-05,
+      -0.047023702412843704,
+      -0.0003561462217476219,
+      0.0021339005324989557
+    ],
+    "target_std": [
+      0.056509483605623245,
+      0.02704169973731041,
+      0.026738658547401428,
+      0.026599526405334473,
+      0.48015573620796204,
+      0.15827327966690063,
+      0.1701565980911255,
+      0.16677990555763245,
+      0.0409993976354599,
+      0.027863889932632446,
+      0.028947671875357628,
+      0.028769081458449364,
+      0.1705855280160904,
+      0.1468491554260254,
+      0.1287357360124588
+    ]
+  }
+}

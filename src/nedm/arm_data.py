@@ -208,7 +208,8 @@ def configure_vehicle_data_path() -> None:
     The M113 model files (incl. track-shoe collision hulls referenced relative to
     the data root) live there; the arm loads its own bundled meshes.
     """
-    veh.SetVehicleDataPath(os.path.join(chrono.GetChronoDataPath(), "vehicle") + os.sep)
+    set_vehicle_data_path = getattr(veh, "SetVehicleDataPath", None) or veh.SetDataPath
+    set_vehicle_data_path(os.path.join(chrono.GetChronoDataPath(), "vehicle") + os.sep)
 
 
 def build_scene():
@@ -733,7 +734,7 @@ def run_episode(m113, vehicle, terrain, gripper, actuator, collision_links,
     )
 
 
-def build_and_prepare(render=False):
+def build_and_prepare(render=False, settle_time_s=SETTLE_TIME):
     """Build the M113+arm scene, swap to PD motors, add arm collision, settle.
 
     Returns (m113, vehicle, terrain, gripper, actuator, collision_links, vis).
@@ -753,7 +754,8 @@ def build_and_prepare(render=False):
     driver_inputs.m_steering = 0.0
     driver_inputs.m_braking = 1.0
     n_sub = max(1, int(round(CONTROL_DT / STEP_SIZE)))
-    for _ in range(int(round(SETTLE_TIME / CONTROL_DT))):
+    settle_steps = int(round(float(settle_time_s) / CONTROL_DT))
+    for _ in range(max(0, settle_steps)):
         _substep(m113, terrain, actuator, driver_inputs, n_sub, vis=vis)
     vehicle.GetChassisBody().SetFixed(True)
 

@@ -36,10 +36,17 @@ def load_json(path: Path) -> dict[str, Any]:
 
 def compute_dt_s(dataset_root: Path) -> float:
     resolved_cfg_path = dataset_root / "collector_config.resolved.json"
-    if not resolved_cfg_path.exists():
-        return 0.01
-    resolved_cfg = load_json(resolved_cfg_path)
-    return float(resolved_cfg["simulation"]["record_step_s"])
+    if resolved_cfg_path.exists():
+        resolved_cfg = load_json(resolved_cfg_path)
+        return float(resolved_cfg["simulation"]["record_step_s"])
+    # Datasets without a resolved collector config (e.g. the arm collector) record
+    # their control period in the dataset index's config block instead.
+    dataset_index_path = dataset_root / "dataset_index.json"
+    if dataset_index_path.exists():
+        index_cfg = load_json(dataset_index_path).get("config", {})
+        if "control_dt_s" in index_cfg:
+            return float(index_cfg["control_dt_s"])
+    return 0.01
 
 
 def compute_common_dt_s(dataset_roots: list[Path]) -> float:
@@ -333,6 +340,12 @@ def main(argv: list[str] | None = None) -> int:
         dataset_indices.append(dataset_index)
         for episode in dataset_index["episodes"]:
             episode_record = dict(episode)
+            # Arm-collector episodes carry collision_kind but not scenario_family
+            # (which save_split requires); group by termination kind so a future
+            # rollout eval can balance across ground/track/joint_limit/full-length.
+            episode_record.setdefault(
+                "scenario_family", episode.get("collision_kind") or "full_length"
+            )
             episode_record["_dataset_root"] = str(dataset_root)
             episode_record["_dataset_name"] = str(dataset_index["dataset_name"])
             all_episodes.append(episode_record)

@@ -1,0 +1,35 @@
+{
+  "processed_dataset_dir": "artifacts/training_datasets/arm_dyn_v3_seq16_v1",
+  "output_dir": "artifacts/training_runs/arm_transformer_full_v1",
+  "validation_dataset_name": "arm",
+  "model": {
+    "block_size": 16,
+    "n_layer": 6,
+    "n_head": 8,
+    "n_embd": 256,
+    "dropout": 0.0,
+    "bias": false,
+    "head_hidden_dim": 256
+  },
+  "optimizer": {
+    "lr": 0.0003,
+    "min_lr": 3e-05,
+    "weight_decay": 0.1,
+    "betas": [0.9, 0.95],
+    "warmup_steps": 1000,
+    "grad_clip_norm": 1.0
+  },
+  "training": {
+    "seed": 20260630,
+    "device": "auto",
+    "batch_size": 256,
+    "num_workers": 0,
+    "num_epochs": 80,
+    "steps_per_epoch": 2000,
+    "max_val_batches": 200,
+    "load_dataset_into_memory": true,
+    "pin_memory": false,
+    "checkpoint_metric": "val_loss",
+    "compile": false
+  }
+}

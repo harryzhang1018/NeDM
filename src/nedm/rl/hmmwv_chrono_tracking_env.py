@@ -48,6 +48,9 @@ def default_chrono_env_cfg() -> dict[str, Any]:
             "chrono_config": "configs/hmmwv_overfit_v1.json",
             "chrono_step_size_s": None,
             "warm_start_context": True,
+            # Run Chrono against reference actions before policy hand-off so the
+            # vehicle/terrain state settles before eval metrics start.
+            "pre_roll_time_s": 6.0,
             # Max steering-command change per policy step; None disables the filter.
             "steering_rate_limit": None,
             # Offscreen Irrlicht rendering (saves one PNG per render frame; no interactive window required,
@@ -112,12 +115,15 @@ class HMMWVChronoTrackingEnv(VecEnv):
         self.max_episode_length = int(self.cfg["max_episode_steps"])
         self.auto_reset = bool(self.cfg.get("auto_reset", False))
         self.warm_start_context = bool(self.cfg.get("warm_start_context", True))
+        self.pre_roll_time_s = float(self.cfg.get("pre_roll_time_s", 6.0))
 
         self.metadata, self.dynamics_config, self.context_steps, self.dt_s = load_checkpoint_metadata(
             checkpoint_path=self.cfg["dynamics_checkpoint"],
             processed_dataset_dir=self.cfg.get("processed_dataset_dir"),
         )
         self.step_dt = self.dt_s * self.action_repeat
+        self.pre_roll_steps = max(0, int(round(self.pre_roll_time_s / self.dt_s)))
+        self.policy_start_ref_step = self.pre_roll_steps + self.context_steps - 1
         if self.obs_history_steps > self.context_steps:
             raise ValueError(
                 f"obs_history_steps={self.obs_history_steps} exceeds dynamics context {self.context_steps}"
@@ -149,13 +155,16 @@ class HMMWVChronoTrackingEnv(VecEnv):
         self.reference_poses = torch.as_tensor(self.reference_set.poses, dtype=torch.float32, device=self.device)
         self.num_references = int(self.reference_states.shape[0])
         self.reference_length = int(self.reference_states.shape[1])
-        min_required_length = self.context_steps + self.action_repeat + 1
+        min_required_length = self.pre_roll_steps + self.context_steps + self.action_repeat + 1
         if self.reference_length < min_required_length:
             raise ValueError(
-                f"Reference length {self.reference_length} is too short for context={self.context_steps} "
-                f"and action_repeat={self.action_repeat}"
+                f"Reference length {self.reference_length} is too short for pre_roll_steps={self.pre_roll_steps}, "
+                f"context={self.context_steps}, and action_repeat={self.action_repeat}"
             )
-        max_policy_steps_from_refs = max(1, (self.reference_length - self.context_steps - 1) // self.action_repeat)
+        max_policy_steps_from_refs = max(
+            1,
+            (self.reference_length - self.pre_roll_steps - self.context_steps - 1) // self.action_repeat,
+        )
         if self.max_episode_length > max_policy_steps_from_refs:
             self.max_episode_length = max_policy_steps_from_refs
 
@@ -305,27 +314,36 @@ class HMMWVChronoTrackingEnv(VecEnv):
         for env_index, reference_id in zip(env_ids_cpu, reference_ids_cpu, strict=True):
             ref_id_tensor = torch.tensor(reference_id, dtype=torch.long, device=self.device)
             self.ref_ids[env_index] = ref_id_tensor
-            self.ref_step_buf[env_index] = self.context_steps - 1
+            self.ref_step_buf[env_index] = self.policy_start_ref_step
 
             if self.warm_start_context:
-                # Always reset Chrono at reference index 0, then replay context to preserve vehicle internal state.
+                # Reset Chrono at reference index 0, pre-roll for stabilization, then keep the last
+                # context window before policy hand-off.
                 self.sims[env_index] = self._create_sim(reference_id, ref_step=0)
                 state_history_np, pose_np = self._warm_start_sim_context(self.sims[env_index], reference_id)
                 self.state_hist[env_index] = torch.as_tensor(
                     state_history_np, dtype=torch.float32, device=self.device
                 )
-                self.action_hist[env_index] = self.reference_actions[reference_id, : self.context_steps]
+                context_start = self.pre_roll_steps
+                context_stop = context_start + self.context_steps
+                self.action_hist[env_index] = self.reference_actions[reference_id, context_start:context_stop]
                 self.pose[env_index] = torch.as_tensor(pose_np, dtype=torch.float32, device=self.device)
             else:
-                self.state_hist[env_index] = self.reference_states[reference_id, : self.context_steps]
-                self.action_hist[env_index] = self.reference_actions[reference_id, : self.context_steps]
-                self.pose[env_index] = self.reference_poses[reference_id, self.context_steps - 1]
-                self.sims[env_index] = self._create_sim(reference_id, ref_step=self.context_steps - 1)
+                context_start = self.pre_roll_steps
+                context_stop = context_start + self.context_steps
+                self.state_hist[env_index] = self.reference_states[reference_id, context_start:context_stop]
+                self.action_hist[env_index] = self.reference_actions[reference_id, context_start:context_stop]
+                self.pose[env_index] = self.reference_poses[reference_id, self.policy_start_ref_step]
+                self.sims[env_index] = self._create_sim(reference_id, ref_step=0)
+                reference_actions_np = self.reference_set.actions[reference_id]
+                for ref_step in range(self.policy_start_ref_step):
+                    self._set_driver_action_np(self.sims[env_index], reference_actions_np[ref_step])
+                    self._advance_sim_steps(self.sims[env_index], self.chrono_steps_per_nn_step)
                 state_np, pose_np = self._capture_state_pose_np(self.sims[env_index])
                 self.state_hist[env_index, -1] = torch.as_tensor(state_np, dtype=torch.float32, device=self.device)
                 self.pose[env_index] = torch.as_tensor(pose_np, dtype=torch.float32, device=self.device)
 
-            self.actions[env_index] = self.reference_actions[reference_id, self.context_steps - 1]
+            self.actions[env_index] = self.reference_actions[reference_id, self.policy_start_ref_step]
             self.last_actions[env_index] = self.actions[env_index]
 
             self.episode_length_buf[env_index] = 0
@@ -495,7 +513,7 @@ class HMMWVChronoTrackingEnv(VecEnv):
 
     def _add_reference_line(self, sim: ChronoHMMWVSim, reference_id: int) -> None:
         poses = self.reference_set.poses[reference_id]
-        start = max(0, self.context_steps - 1)
+        start = max(0, self.policy_start_ref_step)
         z = float(self.cfg.get("render_line_z_m", 0.3))
         points = chrono.vector_ChVector3d()
         for step in range(start, poses.shape[0]):
@@ -528,17 +546,22 @@ class HMMWVChronoTrackingEnv(VecEnv):
             (self.context_steps, len(self.state_fields)),
             dtype=np.float32,
         )
+        reference_actions = self.reference_set.actions[reference_id]
+        for ref_step in range(self.pre_roll_steps):
+            self._set_driver_action_np(sim, reference_actions[ref_step])
+            self._advance_sim_steps(sim, self.chrono_steps_per_nn_step)
+
         state_np, pose_np = self._capture_state_pose_np(sim)
         state_history[0] = state_np
 
-        reference_actions = self.reference_set.actions[reference_id]
         for ref_step in range(1, self.context_steps):
-            self._set_driver_action_np(sim, reference_actions[ref_step - 1])
+            action_index = self.pre_roll_steps + ref_step - 1
+            self._set_driver_action_np(sim, reference_actions[action_index])
             self._advance_sim_steps(sim, self.chrono_steps_per_nn_step)
             state_np, pose_np = self._capture_state_pose_np(sim)
             state_history[ref_step] = state_np
 
-        self._set_driver_action_np(sim, reference_actions[self.context_steps - 1])
+        self._set_driver_action_np(sim, reference_actions[self.policy_start_ref_step])
         return state_history, pose_np
 
     def _capture_state_pose_np(self, sim: ChronoHMMWVSim | None) -> tuple[np.ndarray, np.ndarray]:

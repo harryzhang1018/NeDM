@@ -2,7 +2,7 @@
 
 A living log of the overall project state, so both of us can see at a glance what is done, what the headline numbers are, and what is next. Update this file whenever a milestone lands or a headline metric changes.
 
-Last updated: 2026-06-29 (added the steering-rate-limited one-hot RL policies trained + evaluated with `steering_rate_limit = 0.1` uniformly across rigid-flat, CRM, and bumpy; mixture generalist is now best mean on all three terrains and best median on rigid-flat/bumpy — see the 2026-06-29 subsection; earlier 2026-06-25 mixed-clamp eval kept but marked superseded)
+Last updated: 2026-06-30 (started the **Arm Mobile-Manipulator Study (case 2)**: trained the reach-mode arm dynamics NN `f_arm` — `arm_transformer_v1`, 15-D state, context 16, `val_loss` 0.00181, open-loop EE drift ~2% `errdist` @0.5 s — and laid out the reaching-RL (Phase 4) plan; see the new "Arm Mobile-Manipulator Study" section. Prior 2026-06-29 HMMWV steering-rate-limit entry unchanged)
 
 ## Status At A Glance
 
@@ -12,6 +12,7 @@ Last updated: 2026-06-29 (added the steering-rate-limited one-hot RL policies tr
 | 2 | NN dynamics model for HMMWV | Done | Upgraded from 7-D state to 15-D tire-normal-force/omega state; current RL backbone is `hmmwv_transformer_v07_tire_normal_force_omega_300g` |
 | 3 | RL tracking on NN dynamics + Chrono eval | Done (first pass) | 15-D policy eval now covers flat and bumpy rest-start refs; bumpy terrain degrades Chrono transfer substantially |
 | 4 | CRM (deformable soil) generalist dynamics NN | Generalist + ablations trained on 20× CRM (`crm_2000`) with one-hot terrain conditioning | One-hot 75/25 generalist hits **flat 9.1% / CRM 5.8%** open-loop 10s err/dist — improving the `crm_100` incumbent on **both** (flat 15.4%→9.1%, CRM 9.4%→5.8%). Single-domain ablations reach **flat 5.0% / CRM 3.7%** in-domain but collapse off-domain (flat-only→CRM 69%, CRM-only→flat 37%): co-training trades ~3–4 pt peak accuracy for cross-domain robustness. All three on `main` (LFS); see 2026-06-24 subsection |
+| 5 | Arm mobile-manipulator (case 2): dynamics NN + reaching RL | Dynamics model **done**; reaching RL planned | `f_arm` (`arm_transformer_v1`, 15-D state `[q,qd,qcmd,ee_base]`, context 16) reuses the HMMWV stack: `val_loss` **0.00181**, open-loop EE drift **~1.9% `errdist` @0.5 s**, 2.7% @1 s. Reaching policy `π_reach` on the frozen model is the next step; see the "Arm Mobile-Manipulator Study" section |
 
 ## Milestone 1: Rigid Flat-Terrain HMMWV Dataset
 
@@ -520,8 +521,63 @@ gitignored — rsync `hmmwv_tire_rigid_300g_normal_force_omega_seq_v1` +
 `hmmwv_crm_2000_normal_force_omega_seq_v1` to retrain elsewhere (and `git lfs pull` to fetch the real
 checkpoints). Trained on the local box this time; both ablation runs completed cleanly.
 
+## Arm Mobile-Manipulator Study (Case 2): Arm Dynamics Model + Reaching RL
+
+Second NeDM study case, parallel to the HMMWV traversal work above: a 4-DOF gripper arm welded to the front of an M113 tracked vehicle. The goal is **locomanipulation** — drive the base until a target enters the arm's workspace, then reach it with the arm — split into a **drive mode** and a **reach mode** so we never have to learn the full coupled vehicle+arm dynamics at once. Design doc: [arm-dyn-model.md](arm-dyn-model.md). This milestone delivers the **reach-mode arm dynamics model** `f_arm` and the plan to train the reaching policy on it. Chrono-side collector details: `src/nedm/arm_data.py` and project memory `arm-dynamics-data-collection`.
+
+### Arm dynamics data + quality (2026-06-30)
+
+Raw data: `artifacts/datasets/arm_dynamics_v3_home_reset_fulltraj_shards/` — 15 shards × 1,000 episodes = **15,000 episodes / 920,640 transitions / 799 MB**, 50 Hz control (`control_dt = 0.02 s`), base pinned after settle, **torque + per-substep PD** joint actuation (so `q` genuinely lags `qcmd` — real dynamics, not a hard angle constraint). Each CSV row is a full transition: `q, qd, qcmd, act (=Δqcmd), q_next, qd_next, ee` (world) and `ee_base` (arm-base frame), plus `collision`/`collision_kind`.
+
+Quality probe (episode stats over all 15k + per-channel stats from a 1,200-episode CSV sample):
+
+- **Dynamics are non-degenerate.** PD tracking gap `|qcmd−q|` mean/joint = [0.37, 0.10, 0.065, 0.043] rad; `|qd|` mean/joint = [2.06, 1.02, 0.95, 0.85] rad/s; `qcmd+act==qcmd_next` exactly. The torque/PD swap worked — there is dynamics to learn.
+- **Plenty of windows at context 16.** A 16-step window needs ≥17 rows; yield **703,027 windows** (train 592k / val 111k) from 65.8% of episodes. (block 8 → 800k from 100% of eps; block 32 → 573k from 51%.)
+- **Coverage skew — the one caveat that shapes the RL phase.** 71% of episodes terminate on **ground** contact and 34% are <17 rows: the home pose + random downward shoulder commands drive the arm into the floor fast, so trajectories are short and the **lower workspace is under-sampled** — shoulder `q_1` only covers [−0.61, +1.57] of its ±1.57 rad limit (base yaw `q_0` covers full ±π; elbow/wrist full ±1.57). EE (world) z ∈ [0.16, 7.28] m, all above ground. ⟹ **reaching goals must be sampled in the well-covered upper/forward workspace**, not deep-down/near-ground.
+
+### Arm dynamics NN model `f_arm` (2026-06-30)
+
+Reuses the HMMWV training stack **unchanged** (`model.py`, `model_transformer.py`, `dataset.py`, `trainer.py`, `rl/dynamics.py`) — the same GPT-style causal continuous-token transformer, only the dims and context differ. Two tiny backward-compatible edits to `preprocess.py` were all the arm data needed: (1) `compute_dt_s` falls back to the dataset index's `control_dt_s` when there is no `collector_config.resolved.json` (arm dt = 0.02 s; without this it silently returned 0.01); (2) `main()` defaults the missing `scenario_family` from `collision_kind`.
+
+I/O design (state == target, 15-D):
+
+| Group | Fields | Dim |
+|---|---|---:|
+| state == target | `q0..3, qd0..3, qcmd0..3, ee_base_{x,y,z}` | 15 |
+| action | `act0..3` (applied Δqcmd) | 4 |
+| context (`block_size`) | 16 steps ≈ 0.32 s @ 50 Hz | — |
+
+- **`qcmd` is in the state** because during a step the PD targets `qcmd_{t+1}=qcmd_t+act_t`; the model needs the absolute command, not just the increment (the increment alone is ambiguous across window boundaries).
+- **`ee_base` is predicted as a state channel** so the reaching RL reads the end-effector straight from the model with **no torch arm-FK** (the reward is `‖ee−goal‖`).
+- Because the pipeline ties `target_dim==state_dim`, the model also predicts `Δqcmd` — a trivial identity (`Δqcmd≈act`; its `target_std` equals `action_std`). Harmless, and at RL rollout the qcmd channels are overwritten deterministically rather than trusted.
+
+Config `configs/arm_transformer_v1.json`: compact 4-layer / 4-head / 128-embd transformer, `dropout 0`, no `rollout_eval` (the HMMWV rollout integrator is pose-specific and would KeyError on arm fields; checkpoint on windowed `val_loss`). Processed cache `artifacts/training_datasets/arm_dyn_v3_seq16_v1` (763,886 train / 141,754 val transitions; `rollout_fields = ee_base`). Run dir `artifacts/training_runs/arm_transformer_v1`.
+
+Results — best `val_loss = 0.00181` @ epoch 30 (converged monotonically, not overfit):
+
+| Metric | Value |
+|---|---|
+| 1-step val RMSE | q 0.3–1.0 mrad · qd 0.009–0.043 rad/s · ee_base 0.0014–0.0029 |
+| Open-loop EE drift `errdist` (EE err ÷ EE travel) | **1.9% @0.25 s · 1.9% @0.5 s · 2.7% @1 s · 4.0% @2 s** |
+
+Eval via `scripts/eval_arm_rollout.py` (its own open-loop EE-drift rollout over held-out val episodes — seeds 16 steps, rolls `next = state + predict_next_delta`, compares predicted `ee_base` to ground truth; `artifacts/training_runs/arm_transformer_v1/rollout_eval.json`). The displacement-normalized drift holds ~2% over the horizons a reaching policy plans over → the model is **RL-ready**. (Absolute EE units are the collector's 2×-scaled-arm meters; `errdist` is the scale-invariant headline. Chrono sim-to-real transfer is validated in Phase 4.) **Not yet committed** — local edits + artifacts on `main`.
+
+### Reaching RL plan — Phase 4 (planned, not started)
+
+Train a **reach policy** `π_reach` entirely inside the frozen `f_arm` (base fixed, matching the data), then validate transfer in Chrono. Follows [arm-dyn-model.md](arm-dyn-model.md) §7, §9.
+
+- **Env** — new `src/nedm/rl/arm_reaching_env.py` (rsl_rl `VecEnv`), **simpler** than the HMMWV tracking env: no world-pose integration and no reference trajectory, just a goal point. Reuse `load_frozen_dynamics` and the `state_hist`/`action_hist` roll + `predict_next_delta` substep pattern from `hmmwv_tracking_env.py`.
+- **Obs:** `q, qd, qcmd, goal_base, ee_base, goal−ee, d_safe_min`.
+- **Action (4):** `Δqcmd`, scaled by per-joint `DQ_MAX`; the env computes `qcmd_next = clip(qcmd+act)` **deterministically** and writes it into the qcmd channels (ignores the model's qcmd prediction — exact, drift-free). EE for the reward is read directly from the model's predicted `ee_base`.
+- **Reward:** `−w·‖ee−goal‖ − w·‖a‖² − w·‖Δa‖² − collision penalty + success bonus`; success when `‖ee−goal‖ < ε` for several consecutive steps.
+- **Goals:** sampled in the **well-covered upper/forward workspace** (per the coverage caveat above), not near-ground.
+- **Safety filter (doc §7):** lightweight geometric self/track/ground check applied before each model step (block + penalize unsafe). Separate module, needed for RL but not for the dynamics model; Chrono stays the ground-truth checker only during data collection / final validation.
+- **Then:** `scripts/train_arm_rl_reaching.py` (mirror `train_hmmwv_rl_tracking.py`), and a Chrono reaching-validation env (parallel to `hmmwv_chrono_tracking_env.py`) to confirm `π_reach` reaches goals on the real simulator with a fixed base.
+- **Later (out of scope for v1):** the **drive** policy + base dynamics model (HMMWV-style), and the rule-based **mode selector** that switches drive↔reach (doc §10–§12).
+
 ## Open Items / Next Steps
 
+- **Arm reaching RL (Phase 4 — next for case 2)**: build `src/nedm/rl/arm_reaching_env.py` on the frozen `f_arm` and train `π_reach`, then validate in Chrono — full plan in the "Arm Mobile-Manipulator Study" section. Sample goals in the upper/forward workspace (the lower workspace is under-sampled). Also: commit the Phase 0–3 arm work (currently local on `main`).
 - **Braking transfer gap**: the policy tracks turning references in Chrono but diverges on braking-heavy ones — likely a dynamics-model gap (brake response) rather than a policy gap; worth checking v07 open-loop rollout error on launch_brake/steer_brake segments specifically.
 - **v19–v30 sweep** crashed at the first model and was never completed.
 - **RL on alternate dynamics backbones**: the current active policy uses the 15-D tire-normal-force/omega v07-style model; the older `v3_turn_300g` backbone remains untested as an RL backbone.

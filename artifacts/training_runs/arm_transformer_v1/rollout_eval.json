@@ -1,0 +1,47 @@
+{
+  "checkpoint": "/home/harry/NeDM/artifacts/training_runs/arm_transformer_v1/checkpoints/best_val.pt",
+  "processed_dataset_dir": "/home/harry/NeDM/artifacts/training_datasets/arm_dyn_v3_seq16_v1",
+  "split": "val",
+  "context_steps": 16,
+  "dt_s": 0.02,
+  "episodes_rolled": 409,
+  "one_step_ee_rmse_m": 0.004613783269901286,
+  "horizons": {
+    "0.25s": {
+      "steps": 12,
+      "episodes": 309,
+      "ee_rmse_m": 0.06830477451997359,
+      "ee_mean_m": 0.04352696367967452,
+      "ee_p90_m": 0.06012685745954512,
+      "gt_disp_mean_m": 3.5311307474054563,
+      "errdist": 0.01934359824261999
+    },
+    "0.50s": {
+      "steps": 25,
+      "episodes": 303,
+      "ee_rmse_m": 0.11068640190493362,
+      "ee_mean_m": 0.07640665807690558,
+      "ee_p90_m": 0.12554172575473785,
+      "gt_disp_mean_m": 5.8450363483464365,
+      "errdist": 0.018936820116823884
+    },
+    "1.00s": {
+      "steps": 50,
+      "episodes": 254,
+      "ee_rmse_m": 0.14160241665888135,
+      "ee_mean_m": 0.1100863019191462,
+      "ee_p90_m": 0.18637196123600008,
+      "gt_disp_mean_m": 5.304461735674716,
+      "errdist": 0.026694964298930857
+    },
+    "2.00s": {
+      "steps": 100,
+      "episodes": 93,
+      "ee_rmse_m": 0.23041065491978607,
+      "ee_mean_m": 0.18534882631032698,
+      "ee_p90_m": 0.33608130216598503,
+      "gt_disp_mean_m": 5.7274478045842985,
+      "errdist": 0.040229202042725454
+    }
+  }
+}

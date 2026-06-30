@@ -64,6 +64,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--reference-index", type=int, default=None, help="Evaluate only one reference index.")
     parser.add_argument("--max-steps", type=int, default=None, help="Optional policy-step limit.")
     parser.add_argument(
+        "--pre-roll-time-s",
+        type=float,
+        default=None,
+        help="Seconds to run Chrono on reference actions before policy eval starts. Defaults to env config (6s).",
+    )
+    parser.add_argument(
         "--ignore-dones",
         action="store_true",
         help="Continue plotting until max-steps even after tracking termination.",
@@ -300,6 +306,8 @@ def main(argv: list[str] | None = None) -> int:
         env_cfg["reference_path"] = str(args.reference_path)
     if args.chrono_step_size_s is not None:
         env_cfg["chrono_step_size_s"] = float(args.chrono_step_size_s)
+    if args.pre_roll_time_s is not None:
+        env_cfg["pre_roll_time_s"] = float(args.pre_roll_time_s)
     if args.steering_rate_limit is not None:
         env_cfg["steering_rate_limit"] = float(args.steering_rate_limit)
     terrain_type = resolve_terrain_type(args.chrono_config)
@@ -361,6 +369,7 @@ def main(argv: list[str] | None = None) -> int:
         "backend": "chrono_hmmwv",
         "policy_checkpoint": str(checkpoint_path),
         "chrono_config": str(args.chrono_config),
+        "pre_roll_time_s": float(env.cfg.get("pre_roll_time_s", 0.0)),
         "steering_rate_limit": (
             float(args.steering_rate_limit) if args.steering_rate_limit is not None else None
         ),

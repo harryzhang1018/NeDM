@@ -1,0 +1,70 @@
+{
+  "num_envs": 4096,
+  "device": "cuda",
+  "dynamics_checkpoint": "/home/harry/NeDM/artifacts/training_runs/arm_transformer_full_v1/checkpoints/best_val.pt",
+  "processed_dataset_dir": "artifacts/training_datasets/arm_dyn_v3_seq16_v1",
+  "geometry_path": "artifacts/arm_geometry/arm_geometry_v1.json",
+  "seed_split": "train",
+  "dynamics_context_steps": null,
+  "action_repeat": 1,
+  "max_episode_steps": 150,
+  "auto_reset": true,
+  "action_scale": 1.0,
+  "goal": {
+    "q_lo": [
+      -1.5,
+      0.1,
+      -0.4,
+      -0.4
+    ],
+    "q_hi": [
+      1.5,
+      0.7,
+      0.4,
+      0.4
+    ],
+    "max_sample_attempts": 16
+  },
+  "observation": {
+    "cartesian_scale_m": 4.0,
+    "clearance_scale_m": 0.5,
+    "clearance_clip_m": 1.0
+  },
+  "logging": {
+    "close_thresholds_m": [
+      0.04,
+      0.1,
+      0.2,
+      0.5
+    ]
+  },
+  "safety": {
+    "margins": {
+      "ground_m": 0.03,
+      "vehicle_m": 0.0,
+      "self_m": 0.03,
+      "joint_rad": 0.0
+    },
+    "interpolation_alphas": [
+      0.0,
+      0.25,
+      0.5,
+      0.75,
+      1.0
+    ],
+    "vehicle_link_names": [
+      "elbow",
+      "wrist",
+      "endoffactor",
+      "finger_1",
+      "finger_2"
+    ]
+  },
+  "reward": {
+    "ee_error_scale_m": 0.15,
+    "action_rate_weight": 0.02,
+    "success_bonus": 150.0,
+    "success_tolerance_m": 0.05,
+    "success_steps": 1
+  }
+}
