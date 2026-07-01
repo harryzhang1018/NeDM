@@ -14,7 +14,7 @@
 # per episode, no --jobs), so shards are the only parallelism knob:
 #
 #   mkdir -p logs
-#   sbatch --array=0-19%20 scripts/cluster/collect_tracked_vehicle_drive.sh
+#   sbatch --array=0-14%15 scripts/cluster/collect_tracked_vehicle_drive.sh
 #
 # Running without --array loops over all shards sequentially, useful for
 # local smoke tests and for mopping up incomplete shards. Completed shards
@@ -51,7 +51,7 @@ echo "repo root: $REPO_ROOT"
 echo "python: $PYTHON_BIN"
 
 CONFIG="${TRACKED_CONFIG:-configs/tracked_vehicle_drive_v1.json}"
-NUM_SHARDS="${TRACKED_NUM_SHARDS:-20}"
+NUM_SHARDS="${TRACKED_NUM_SHARDS:-15}"
 OUTPUT_ROOT="${TRACKED_OUTPUT_ROOT:-artifacts/datasets/tracked_vehicle_drive_v1_shards}"
 
 TOTAL_SCENARIOS=$("$PYTHON_BIN" - "$CONFIG" <<'PY'
