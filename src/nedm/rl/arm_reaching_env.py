@@ -403,6 +403,7 @@ class ArmReachingEnv(VecEnv):
             "reach_reward": reach_reward,
             "success_bonus": success_bonus,
             "total_reward": reward,
+            "reached": reached.float(),
             "success": success.float(),
             **{
                 f"close_{self._threshold_label(threshold)}": (ee_error < threshold).float()
@@ -439,20 +440,12 @@ class ArmReachingEnv(VecEnv):
     ) -> dict[str, Any]:
         log = {
             "/reach/ee_error_m": terms["ee_error_m"].mean(),
-            "/reach/reach_reward": terms["reach_reward"].mean(),
             "/reach/clearance_m": terms["clearance_m"].mean(),
             "/reach/unsafe_rate": terms["unsafe_action"].mean(),
+            "/reach/reached_rate": terms["reached"].mean(),
             "/reach/success_rate": terms["success"].mean(),
-            "/reach/success_bonus": terms["success_bonus"].mean(),
             "/reach/action_rate": terms["action_rate"].mean(),
-            "/reach/action_rate_penalty": terms["action_rate_penalty"].mean(),
-            "/reach/total_reward": terms["total_reward"].mean(),
-            "/reach/collision_done": terms["collision_done"].mean(),
-            "/reach/joint_limit_done": terms["joint_limit_done"].mean(),
         }
-        for threshold in self.close_thresholds_m:
-            label = self._threshold_label(threshold)
-            log[f"/reach/close_{label}_rate"] = terms[f"close_{label}"].mean()
         extras: dict[str, Any] = {
             "observations": {"critic": self.obs_buf},
             "time_outs": time_outs,
@@ -464,14 +457,11 @@ class ArmReachingEnv(VecEnv):
             episode = {
                 "/episode/reward": self.episode_reward_sum[done_env_ids].mean(),
                 "/episode/length": lengths.mean(),
-                "/episode/reach_reward_sum": self.episode_reach_reward_sum[done_env_ids].mean(),
                 "/episode/mean_reach_reward": (self.episode_reach_reward_sum[done_env_ids] / lengths).mean(),
-                "/episode/action_rate_penalty_sum": self.episode_action_rate_penalty_sum[done_env_ids].mean(),
                 "/episode/mean_action_rate_penalty": (
                     self.episode_action_rate_penalty_sum[done_env_ids] / lengths
                 ).mean(),
                 "/episode/success_bonus_sum": self.episode_success_bonus_sum[done_env_ids].mean(),
-                "/episode/mean_success_bonus": (self.episode_success_bonus_sum[done_env_ids] / lengths).mean(),
                 "/episode/mean_ee_error_m": (self.episode_ee_error_sum[done_env_ids] / lengths).mean(),
                 "/episode/final_ee_error_m": terms["ee_error_m"][done_env_ids].mean(),
                 "/episode/min_ee_error_m": self.episode_min_ee_error[done_env_ids].mean(),
@@ -481,11 +471,6 @@ class ArmReachingEnv(VecEnv):
                 "/episode/timeout_rate": terms["time_out"][done_env_ids].mean(),
                 "/episode/unsafe_actions": (self.episode_unsafe_sum[done_env_ids] / lengths).mean(),
             }
-            for threshold in self.close_thresholds_m:
-                label = self._threshold_label(threshold)
-                episode[f"/episode/reached_{label}_rate"] = (
-                    self.episode_min_ee_error[done_env_ids] < threshold
-                ).float().mean()
             episode.update(log)
             extras["episode"] = episode
         return extras
