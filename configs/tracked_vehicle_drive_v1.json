@@ -1,0 +1,93 @@
+{
+  "dataset_name": "tracked_vehicle_drive_v1",
+  "output_subdir": "artifacts/datasets/tracked_vehicle_drive_v1",
+  "simulation": {
+    "record_step_s": 0.02,
+    "validation_ratio": 0.15
+  },
+  "scenario_generator": {
+    "seed": 20260701,
+    "shuffle_seed": 20260702,
+    "warmup_s": 1.0,
+    "families": [
+      {
+        "name": "launch_brake",
+        "count": 60,
+        "duration_s_range": [10.0, 14.0],
+        "throttle_peak_range": [0.15, 0.6],
+        "brake_peak_range": [0.2, 0.6]
+      },
+      {
+        "name": "coast_down",
+        "template": "launch_brake",
+        "count": 40,
+        "duration_s_range": [12.0, 18.0],
+        "throttle_peak_range": [0.25, 0.6],
+        "throttle_hold_s_range": [1.0, 2.5],
+        "brake_peak_range": [0.0, 0.0]
+      },
+      {
+        "name": "step_steer",
+        "count": 70,
+        "duration_s_range": [10.0, 14.0],
+        "steering_amplitude_range": [0.05, 0.32],
+        "throttle_peak_range": [0.15, 0.45]
+      },
+      {
+        "name": "pivot_like_turn",
+        "template": "step_steer",
+        "count": 40,
+        "duration_s_range": [8.0, 12.0],
+        "steering_amplitude_range": [0.6, 1.0],
+        "steer_hold_s_range": [1.5, 3.5],
+        "throttle_peak_range": [0.05, 0.2]
+      },
+      {
+        "name": "doublet_steer",
+        "count": 60,
+        "duration_s_range": [10.0, 14.0],
+        "steering_amplitude_range": [0.06, 0.28],
+        "throttle_peak_range": [0.15, 0.4]
+      },
+      {
+        "name": "sine_steer",
+        "count": 60,
+        "duration_s_range": [10.0, 14.0],
+        "steering_amplitude_range": [0.05, 0.24],
+        "frequency_hz_range": [0.2, 1.0],
+        "throttle_peak_range": [0.15, 0.45]
+      },
+      {
+        "name": "chirp_steer",
+        "count": 50,
+        "duration_s_range": [10.0, 14.0],
+        "steering_amplitude_range": [0.05, 0.22],
+        "start_frequency_hz_range": [0.1, 0.4],
+        "end_frequency_hz_range": [0.8, 1.8],
+        "throttle_peak_range": [0.15, 0.4]
+      },
+      {
+        "name": "steer_brake",
+        "count": 50,
+        "duration_s_range": [10.0, 14.0],
+        "steering_amplitude_range": [0.08, 0.25],
+        "throttle_peak_range": [0.2, 0.55],
+        "brake_peak_range": [0.15, 0.55]
+      },
+      {
+        "name": "multi_steer",
+        "count": 70,
+        "duration_s_range": [25.0, 45.0]
+      },
+      {
+        "name": "stop_and_go_straight",
+        "template": "multi_steer",
+        "count": 40,
+        "duration_s_range": [25.0, 40.0],
+        "steering_amplitude_range": [0.0, 0.0],
+        "coast_probability": 0.6,
+        "brake_pulse_count_range": [1, 4]
+      }
+    ]
+  }
+}

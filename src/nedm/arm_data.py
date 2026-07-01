@@ -212,11 +212,17 @@ def configure_vehicle_data_path() -> None:
     set_vehicle_data_path(os.path.join(chrono.GetChronoDataPath(), "vehicle") + os.sep)
 
 
-def build_scene():
+def build_scene(terrain_size_m: float = 100.0):
     """Create the M113 tracked vehicle, front-welded arm, and flat terrain.
 
     Returns (m113, vehicle, terrain, gripper). Mirrors the SMC + high-iteration
     BB-solver configuration that keeps the single-pin track assembled.
+
+    ``terrain_size_m`` is the side length of the square flat patch, which is a
+    genuine finite rigid box (``RigidTerrain.AddPatch``), not an infinite
+    plane -- driving past its edge means falling off it. The 100 m default is
+    fine for reach-mode collection (the base is pinned and never moves), but
+    callers that actually drive the base should pass a much larger size.
     """
     configure_vehicle_data_path()
 
@@ -265,7 +271,8 @@ def build_scene():
     arm_offset = vehicle.GetChassis().GetPos() + ARM_OFFSET
     gripper = LRV_Arm(system, arm_offset, vehicle, scale=ARM_SCALE, mount_rot=ARM_MOUNT_ROT)
 
-    # Flat rigid patch (100 x 100 m) at ground level under the vehicle.
+    # Flat rigid patch (square, terrain_size_m x terrain_size_m) at ground
+    # level under the vehicle.
     terrain = veh.RigidTerrain(system)
     minfo = chrono.ChContactMaterialData()
     minfo.mu = 0.9
@@ -275,7 +282,7 @@ def build_scene():
     patch = terrain.AddPatch(
         patch_mat,
         chrono.ChCoordsysd(chrono.ChVector3d(INIT_LOC.x, INIT_LOC.y, 0), chrono.QUNIT),
-        100.0, 100.0)
+        terrain_size_m, terrain_size_m)
     patch.SetColor(chrono.ChColor(0.5, 0.8, 0.5))
     terrain.Initialize()
 
